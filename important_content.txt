@@ -1,0 +1,4043 @@
+# TASKORA SITE - FULL SRC CODEBASE BLUEPRINT
+
+**CRITICAL INSTRUCTIONS FOR THE AI ASSISTANT:**
+1. **Context Scope:** This file contains the full implementation code for ALL files inside the `src` folder, *except* for the `src/components` directory. Components are listed strictly by their file paths to save context space. If you need to inspect the inner code of any listed component file, **stop and ask me to dump it for you.**
+2. **Code Generation Format:** Whenever you provide updates, fixes, or new files, you **MUST** format your output as an executable Termux `cat` command block so I can copy-paste it directly into my terminal. Use this exact structure:
+   ```bash
+   cat << 'EOF' > path/to/file.tsx
+   // Your code here
+   EOF
+   ```
+
+---
+
+## 1. COMPONENTS & UI REGISTRY (PATHS ONLY)
+The following files exist under src/components/ but their raw contents are omitted from this dump:
+```text
+src/components/layout/Footer.tsx
+src/components/layout/Header.tsx
+src/components/ui/accordion.tsx
+src/components/ui/alert-dialog.tsx
+src/components/ui/alert.tsx
+src/components/ui/aspect-ratio.tsx
+src/components/ui/avatar.tsx
+src/components/ui/badge.tsx
+src/components/ui/breadcrumb.tsx
+src/components/ui/button.tsx
+src/components/ui/calendar.tsx
+src/components/ui/card.tsx
+src/components/ui/carousel.tsx
+src/components/ui/chart.tsx
+src/components/ui/checkbox.tsx
+src/components/ui/collapsible.tsx
+src/components/ui/command.tsx
+src/components/ui/context-menu.tsx
+src/components/ui/dialog.tsx
+src/components/ui/drawer.tsx
+src/components/ui/dropdown-menu.tsx
+src/components/ui/form.tsx
+src/components/ui/hover-card.tsx
+src/components/ui/input-otp.tsx
+src/components/ui/input.tsx
+src/components/ui/label.tsx
+src/components/ui/menubar.tsx
+src/components/ui/navigation-menu.tsx
+src/components/ui/pagination.tsx
+src/components/ui/popover.tsx
+src/components/ui/progress.tsx
+src/components/ui/radio-group.tsx
+src/components/ui/resizable.tsx
+src/components/ui/scroll-area.tsx
+src/components/ui/select.tsx
+src/components/ui/separator.tsx
+src/components/ui/sheet.tsx
+src/components/ui/sidebar.tsx
+src/components/ui/skeleton.tsx
+src/components/ui/slider.tsx
+src/components/ui/sonner.tsx
+src/components/ui/switch.tsx
+src/components/ui/table.tsx
+src/components/ui/tabs.tsx
+src/components/ui/textarea.tsx
+src/components/ui/toggle-group.tsx
+src/components/ui/toggle.tsx
+src/components/ui/tooltip.tsx
+```
+
+---
+
+## 2. SOURCE CODE DUMP (ALL OTHER SRC FILES)
+Below is the complete implementation of all routing, page modules, style sheets, and configuration files located within the `src` tree.
+
+### FILE PATH: src/App.css
+```css
+/* === HEADER STYLES === */
+.header {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  z-index: 50;
+  transition: all 0.3s ease;
+}
+
+.header-scrolled {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.header-normal {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.header-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+  transition: all 0.3s ease;
+}
+
+.header-nav.with-shadow {
+  box-shadow: var(--shadow-card);
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.header-logo-icon {
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.header-logo-text {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: bold;
+  letter-spacing: -0.015em;
+}
+
+.header-nav-menu {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@media (min-width: 768px) {
+  .header-nav-menu {
+    display: flex;
+  }
+}
+
+.nav-link {
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--foreground);
+}
+
+.header-actions {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .header-actions {
+    display: flex;
+  }
+}
+
+.header-signin {
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(250, 248, 246, 0.8);
+  transition: all 0.3s ease;
+}
+
+.header-signin:hover {
+  color: var(--foreground);
+}
+
+.header-getstarted {
+  border-radius: 0.5rem;
+  background: var(--gradient-brand);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-glow);
+}
+
+.header-getstarted:hover {
+  transform: scale(1.03);
+}
+
+.menu-toggle {
+  display: grid;
+  place-items: center;
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+@media (min-width: 768px) {
+  .menu-toggle {
+    display: none;
+  }
+}
+
+.mobile-menu {
+  margin-top: 0.5rem;
+  border-radius: 1rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-actions {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.mobile-signin {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.mobile-getstarted {
+  border-radius: 0.5rem;
+  background: var(--gradient-brand);
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* === HERO SECTION === */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding-top: 6rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 640px) {
+  .hero {
+    padding-top: 8rem;
+    padding-bottom: 4rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero {
+    padding-top: 10rem;
+    padding-bottom: 7rem;
+  }
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-hero);
+  pointer-events: none;
+}
+
+.hero-orb-1 {
+  position: absolute;
+  left: -6rem;
+  top: 6rem;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 50%;
+  background-color: rgba(37, 99, 235, 0.4);
+  filter: blur(96px);
+  pointer-events: none;
+}
+
+.hero-orb-2 {
+  position: absolute;
+  right: -4rem;
+  bottom: 0;
+  width: 20rem;
+  height: 20rem;
+  border-radius: 50%;
+  background-color: rgba(96, 165, 250, 0.3);
+  filter: blur(96px);
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 2rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .hero-content {
+    grid-template-columns: 1.1fr 1fr;
+    gap: 3rem;
+  }
+}
+
+.hero-left {
+  min-width: 0;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.hero-badge-dot {
+  display: grid;
+  place-items: center;
+  height: 1.5px;
+  width: 1.5px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.hero-title {
+  margin-top: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 640px) {
+  .hero-title {
+    font-size: 2.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-title {
+    font-size: 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-title {
+    font-size: 3.75rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .hero-title {
+    font-size: 4rem;
+  }
+}
+
+.hero-description {
+  margin-top: 1.25rem;
+  max-width: 28rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+@media (min-width: 640px) {
+  .hero-description {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-description {
+    font-size: 1.125rem;
+  }
+}
+
+.hero-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .hero-buttons {
+    flex-direction: row;
+    width: auto;
+  }
+}
+
+.hero-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--gradient-brand);
+  padding: 0.75rem 1.25rem;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-glow);
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .hero-btn-primary {
+    width: auto;
+  }
+}
+
+.hero-btn-primary:hover {
+  transform: scale(1.03);
+}
+
+.hero-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: all 0.3s ease;
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .hero-btn-secondary {
+    width: auto;
+  }
+}
+
+.hero-btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  max-width: 28rem;
+  margin-top: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .hero-stats {
+    gap: 0.75rem;
+  }
+}
+
+.hero-stat {
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .hero-stat {
+    padding: 0.75rem 0.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-stat {
+    padding: 1rem 1rem;
+  }
+}
+
+.hero-stat-number {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: bold;
+  word-break: break-word;
+}
+
+@media (min-width: 640px) {
+  .hero-stat-number {
+    font-size: 1.125rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-stat-number {
+    font-size: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-stat-number {
+    font-size: 1.5rem;
+  }
+}
+
+.hero-stat-label {
+  margin-top: 0.25rem;
+  font-size: 0.625rem;
+  line-height: 1.25;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 640px) {
+  .hero-stat-label {
+    font-size: 0.75rem;
+  }
+}
+
+.hero-right {
+  position: relative;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 28rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .hero-right {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+.hero-image-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 640px) {
+  .hero-image-container {
+    border-radius: 1.5rem;
+  }
+}
+
+.hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.hero-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--background), rgba(11, 17, 32, 0.3), transparent);
+}
+
+.floating-card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 640px) {
+  .floating-card {
+    gap: 0.75rem;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+.floating-card-icon {
+  display: grid;
+  place-items: center;
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .floating-card-icon {
+    height: 2.5rem;
+    width: 2.5rem;
+    border-radius: 0.75rem;
+  }
+}
+
+.floating-card-left {
+  left: 0.25rem;
+  top: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .floating-card-left {
+    left: 0;
+    top: 2.5rem;
+  }
+}
+
+.floating-card-right {
+  right: 0.25rem;
+  bottom: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .floating-card-right {
+    right: 0;
+    bottom: 4rem;
+  }
+}
+
+.floating-card-text-small {
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 640px) {
+  .floating-card-text-small {
+    font-size: 0.75rem;
+  }
+}
+
+.floating-card-text-bold {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 640px) {
+  .floating-card-text-bold {
+    font-size: 0.875rem;
+  }
+}
+
+/* === MARQUEE SECTION === */
+.marquee {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(23, 37, 84, 0.4);
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 2.5rem;
+  white-space: nowrap;
+}
+
+.marquee-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.marquee-dot {
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
+  height: 0.25rem;
+  width: 0.25rem;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.marquee-icon {
+  height: 1rem;
+  width: 1rem;
+  color: var(--accent);
+}
+
+/* === HOW IT WORKS SECTION === */
+.how-it-works {
+  position: relative;
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 640px) {
+  .how-it-works {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .how-it-works {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+}
+
+.section-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.section-header {
+  max-width: 42rem;
+}
+
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.section-title {
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+@media (min-width: 640px) {
+  .section-title {
+    font-size: 1.875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .section-title {
+    font-size: 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-title {
+    font-size: 3rem;
+  }
+}
+
+.steps-grid {
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .steps-grid {
+    margin-top: 3rem;
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .steps-grid {
+    margin-top: 3.5rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+.step-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  transition: all 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .step-card {
+    border-radius: 1rem;
+    padding: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .step-card {
+    padding: 1.5rem;
+  }
+}
+
+.step-card:hover {
+  transform: translateY(-4px);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.step-card::before {
+  content: '';
+  position: absolute;
+  right: -2rem;
+  top: -2rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 50%;
+  background-color: rgba(37, 99, 235, 0.2);
+  filter: blur(32px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.step-card:hover::before {
+  opacity: 1;
+}
+
+.step-number {
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 640px) {
+  .step-number {
+    font-size: 2.25rem;
+  }
+}
+
+.step-title {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: bold;
+  word-break: break-word;
+}
+
+@media (min-width: 640px) {
+  .step-title {
+    font-size: 1.25rem;
+  }
+}
+
+.step-description {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 640px) {
+  .step-description {
+    font-size: 0.875rem;
+  }
+}
+
+/* === TASK CATEGORIES SECTION === */
+.task-categories {
+  position: relative;
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 640px) {
+  .task-categories {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .task-categories {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+}
+
+.task-categories::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-hero);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.task-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .task-header {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 1.5rem;
+  }
+}
+
+.task-description {
+  max-width: 28rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 640px) {
+  .task-description {
+    font-size: 0.875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .task-description {
+    font-size: 1rem;
+  }
+}
+
+.categories-grid {
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .categories-grid {
+    margin-top: 2.5rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .categories-grid {
+    margin-top: 3rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .category-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .category-card {
+    padding: 1.25rem;
+  }
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.category-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.category-icon {
+  display: grid;
+  place-items: center;
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.5rem;
+  background: rgba(37, 99, 235, 0.2);
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .category-icon {
+    height: 2.75rem;
+    width: 2.75rem;
+    border-radius: 0.75rem;
+  }
+}
+
+.category-card:hover .category-icon {
+  background: var(--gradient-brand);
+  color: var(--primary-foreground);
+}
+
+.category-info {
+  min-width: 0;
+}
+
+.category-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .category-name {
+    font-size: 1rem;
+  }
+}
+
+.category-label {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 640px) {
+  .category-label {
+    font-size: 0.75rem;
+  }
+}
+
+.category-rate {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--accent);
+  align-self: flex-start;
+}
+
+@media (min-width: 640px) {
+  .category-rate {
+    font-size: 0.875rem;
+    align-self: auto;
+  }
+}
+
+/* === EARNINGS SECTION === */
+.earnings {
+  position: relative;
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 640px) {
+  .earnings {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .earnings {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+}
+
+.earnings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 1.5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .earnings-grid {
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .earnings-grid {
+    gap: 2.5rem;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.earnings-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 640px) {
+  .earnings-card {
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .earnings-card {
+    padding: 2rem;
+  }
+}
+
+.earnings-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .earnings-header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.earnings-amount-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+
+.earnings-amount {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 900;
+  word-break: break-word;
+}
+
+@media (min-width: 640px) {
+  .earnings-amount {
+    font-size: 1.875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .earnings-amount {
+    font-size: 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .earnings-amount {
+    font-size: 3rem;
+  }
+}
+
+.earnings-balance {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.earnings-badge {
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .earnings-badge {
+    border-radius: 1rem;
+  }
+}
+
+.earnings-transactions {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .earnings-transactions {
+    margin-top: 1.5rem;
+    gap: 0.75rem;
+  }
+}
+
+.transaction-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .transaction-item {
+    border-radius: 0.75rem;
+    padding: 1rem 1rem;
+  }
+}
+
+.transaction-info {
+  min-width: 0;
+}
+
+.transaction-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+@media (min-width: 640px) {
+  .transaction-title {
+    font-size: 0.875rem;
+  }
+}
+
+.transaction-time {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.transaction-amount {
+  font-family: var(--font-display);
+  font-weight: bold;
+  color: var(--accent);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .transaction-amount {
+    font-size: 0.875rem;
+  }
+}
+
+.earnings-withdraw {
+  margin-top: 1rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  background: var(--gradient-brand);
+  padding: 0.625rem 0.75rem;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .earnings-withdraw {
+    margin-top: 1.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+  }
+}
+
+.earnings-withdraw:hover {
+  transform: scale(1.02);
+}
+
+.earnings-right {
+  max-width: 28rem;
+}
+
+.earnings-features {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .earnings-features {
+    margin-top: 1.5rem;
+    gap: 0.75rem;
+  }
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .feature-item {
+    gap: 0.75rem;
+  }
+}
+
+.feature-icon {
+  margin-top: 0.125rem;
+  height: 1rem;
+  width: 1rem;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+@media (min-width: 640px) {
+  .feature-icon {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+}
+
+.feature-text {
+  font-size: 0.75rem;
+  color: rgba(250, 248, 246, 0.9);
+}
+
+@media (min-width: 640px) {
+  .feature-text {
+    font-size: 0.875rem;
+  }
+}
+
+/* === FAQ SECTION === */
+.faq {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 640px) {
+  .faq {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .faq {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+}
+
+.faq-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 56rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.faq-header {
+  text-align: center;
+}
+
+.faq-list {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .faq-list {
+    margin-top: 2.5rem;
+    gap: 0.75rem;
+  }
+}
+
+.faq-item {
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .faq-item {
+    border-radius: 1rem;
+    padding: 1.25rem;
+  }
+}
+
+.faq-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  list-style: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+@media (min-width: 640px) {
+  .faq-item summary {
+    gap: 1rem;
+    font-size: 1rem;
+  }
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-toggle {
+  display: grid;
+  place-items: center;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.05);
+  transition: transform 0.3s ease;
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+@media (min-width: 640px) {
+  .faq-toggle {
+    height: 2rem;
+    width: 2rem;
+  }
+}
+
+.faq-item[open] .faq-toggle {
+  transform: rotate(45deg);
+}
+
+.faq-answer {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 640px) {
+  .faq-answer {
+    font-size: 0.875rem;
+  }
+}
+
+/* === CTA SECTION === */
+.cta {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 768px) {
+  .cta {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+}
+
+.cta-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.cta-box {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .cta-box {
+    border-radius: 1.5rem;
+    padding: 2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .cta-box {
+    padding: 3.5rem;
+  }
+}
+
+.cta-box::before,
+.cta-box::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.cta-box::before {
+  left: -5rem;
+  top: -5rem;
+  width: 16rem;
+  height: 16rem;
+  background-color: rgba(37, 99, 235, 0.4);
+  filter: blur(96px);
+}
+
+.cta-box::after {
+  right: -5rem;
+  bottom: -5rem;
+  width: 16rem;
+  height: 16rem;
+  background-color: rgba(96, 165, 250, 0.3);
+  filter: blur(96px);
+}
+
+.cta-content {
+  position: relative;
+}
+
+.cta-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+@media (min-width: 640px) {
+  .cta-title {
+    font-size: 1.875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .cta-title {
+    font-size: 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cta-title {
+    font-size: 3rem;
+  }
+}
+
+.cta-description {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 0.75rem;
+  max-width: 28rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+@media (min-width: 640px) {
+  .cta-description {
+    font-size: 0.875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .cta-description {
+    font-size: 1rem;
+  }
+}
+
+.cta-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .cta-buttons {
+    flex-direction: row;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+}
+
+.cta-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--gradient-brand);
+  padding: 0.625rem 1.25rem;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-glow);
+  width: 100%;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .cta-btn-primary {
+    width: auto;
+  }
+}
+
+.cta-btn-primary:hover {
+  transform: scale(1.03);
+}
+
+.cta-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: all 0.3s ease;
+  width: 100%;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .cta-btn-secondary {
+    width: auto;
+  }
+}
+
+.cta-btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* === FOOTER === */
+.footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 2rem;
+  padding-bottom: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .footer {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+  }
+}
+
+.footer-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 768px) {
+  .footer-container {
+    flex-direction: row;
+  }
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .footer-brand {
+    text-align: left;
+    justify-content: flex-start;
+  }
+}
+
+.footer-logo-icon {
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.footer-logo-text {
+  font-family: var(--font-display);
+  font-weight: bold;
+  font-size: 0.875rem;
+}
+
+.footer-tag {
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.footer-copyright {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+```
+
+---
+
+### FILE PATH: src/App.tsx
+```tsx
+import { BrowserRouter } from "react-router-dom";
+import AppRoutes from "./routes/AppRoutes";
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <div className="relative flex min-h-screen flex-col bg-background font-sans antialiased text-foreground">
+        <AppRoutes />
+      </div>
+    </BrowserRouter>
+  );
+}
+```
+
+---
+
+### FILE PATH: src/api/auth.ts
+```ts
+const BASE = import.meta.env.VITE_API_BASE_URL as string
+
+// ── Shared shapes ────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string
+  firstName: string
+  lastName: string
+  username: string
+  email: string
+  role: string
+}
+
+export interface ApiErrorBody {
+  error: string
+}
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly body: ApiErrorBody,
+  ) {
+    super(body.error ?? 'An unexpected error occurred')
+    this.name = 'ApiError'
+  }
+}
+
+// ── Sign up ──────────────────────────────────────────────────────────────────
+
+export interface SignUpPayload {
+  firstName: string
+  lastName: string
+  username: string
+  email: string
+  phoneNumber: string
+  role: string
+  password: string
+}
+
+export interface SignUpUser {
+  id: string
+  first_name: string
+  last_name: string
+  username: string
+  email: string
+  phone_number: string
+  role: string
+  referral_code: string
+  created_at: string
+}
+
+export interface SignUpResponse {
+  user: SignUpUser
+}
+
+// ── Login ────────────────────────────────────────────────────────────────────
+
+export interface LoginPayload {
+  email: string
+  password: string
+}
+
+export interface LoginResponse {
+  accessToken: string
+  refreshToken: string
+  user: AuthUser
+}
+
+// ── Internal fetch helper ────────────────────────────────────────────────────
+
+async function apiFetch<T>(path: string, options: RequestInit): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+    })
+  } catch (networkErr) {
+    console.error(`[API] Network/fetch error on ${path}:`, networkErr)
+    throw new ApiError(0, {
+      error: `Cannot reach the server. Make sure the backend is running on ${BASE}`,
+    })
+  }
+
+  if (import.meta.env.DEV) {
+    console.log(`[API] ${res.status} ${res.url}`)
+  }
+
+  const text = await res.text()
+
+  let json: unknown
+  try {
+    json = text ? JSON.parse(text) : {}
+  } catch {
+    throw new ApiError(res.status, {
+      error: `Server returned an unexpected response (${res.status}).`,
+    })
+  }
+
+  if (!res.ok) {
+    throw new ApiError(res.status, json as ApiErrorBody)
+  }
+
+  return json as T
+}
+
+// ── Endpoints ────────────────────────────────────────────────────────────────
+
+export async function signUp(payload: SignUpPayload): Promise<SignUpResponse> {
+  return apiFetch<SignUpResponse>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function login(payload: LoginPayload): Promise<LoginResponse> {
+  return apiFetch<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+```
+
+---
+
+### FILE PATH: src/context/AuthContext.tsx
+```tsx
+```
+
+---
+
+### FILE PATH: src/hooks/use-mobile.tsx
+```tsx
+import * as React from "react";
+
+const MOBILE_BREAKPOINT = 768;
+
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);
+
+  React.useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const onChange = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+    mql.addEventListener("change", onChange);
+    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  return !!isMobile;
+}
+```
+
+---
+
+### FILE PATH: src/lib/auth-storage.ts
+```ts
+const ACCESS_TOKEN_KEY = 'taskora_access_token'
+const REFRESH_TOKEN_KEY = 'taskora_refresh_token'
+const USER_KEY = 'taskora_user'
+
+export interface StoredUser {
+  id: string
+  firstName: string
+  lastName: string
+  username: string
+  email: string
+  role: string
+}
+
+// ── Write ────────────────────────────────────────────────────────────────────
+
+export function setAuthSession(
+  accessToken: string,
+  refreshToken: string,
+  user: StoredUser,
+) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function clearAuthSession() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+}
+
+// ── Read ─────────────────────────────────────────────────────────────────────
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+export function getStoredUser(): StoredUser | null {
+  const raw = localStorage.getItem(USER_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as StoredUser
+  } catch {
+    return null
+  }
+}
+
+// NOTE: this only checks for a token's *presence*, not its expiry.
+// The access token is short-lived (~15 min). Once a refresh-token flow
+// endpoint exists (e.g. POST /auth/refresh), wire it up here so expired
+// access tokens are silently renewed using the refresh token.
+export function isAuthenticated(): boolean {
+  return !!getAccessToken()
+}
+
+// Convenience helper for attaching the bearer token to future
+// authenticated API requests (dashboard data, wallet, tasks, etc.)
+export function getAuthHeader(): Record<string, string> {
+  const token = getAccessToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+```
+
+---
+
+### FILE PATH: src/lib/lovable-error-reporting.ts
+```ts
+type LovableErrorOptions = {
+  mechanism?: "manual" | "onerror" | "unhandledrejection" | "react_error_boundary";
+  handled?: boolean;
+  severity?: "error" | "warning" | "info";
+};
+
+type LovableEvents = {
+  captureException?: (
+    error: unknown,
+    context?: Record<string, unknown>,
+    options?: LovableErrorOptions,
+  ) => void;
+};
+
+declare global {
+  interface Window {
+    __lovableEvents?: LovableEvents;
+    __lovableReportRuntimeError?: (payload: {
+      message: string;
+      stack?: string;
+      filename?: string;
+    }) => void;
+  }
+}
+
+export function reportLovableError(error: unknown, context: Record<string, unknown> = {}) {
+  if (typeof window === "undefined") return;
+  window.__lovableEvents?.captureException?.(
+    error,
+    {
+      source: "react_error_boundary",
+      route: window.location.pathname,
+      ...context,
+    },
+    {
+      mechanism: "react_error_boundary",
+      handled: false,
+      severity: "error",
+    },
+  );
+  // Prod React does not rethrow boundary-caught errors to window.onerror, so the
+  // editor's telemetry never sees them. Forward to lovable.js's reporting hook,
+  // which is present only inside the editor preview.
+  // Loaders and server fns commonly throw a raw Response; String(it) is the
+  // opaque "[object Response]", so pull out the status and URL instead.
+  const message =
+    error instanceof Response
+      ? `Response ${error.status}${error.url ? ` at ${error.url}` : ""}`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  window.__lovableReportRuntimeError?.({
+    message,
+    stack: error instanceof Error ? error.stack : undefined,
+    filename: window.location.pathname,
+  });
+}
+```
+
+---
+
+### FILE PATH: src/lib/utils.ts
+```ts
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+---
+
+### FILE PATH: src/main.tsx
+```tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './styles.css'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/DashboardPage.tsx
+```tsx
+import { useNavigate } from "react-router-dom";
+import { getStoredUser, clearAuthSession } from "../../lib/auth-storage";
+
+export default function DashboardPage() {
+  const navigate = useNavigate();
+  const user = getStoredUser();
+
+  function handleLogout() {
+    clearAuthSession();
+    navigate("/");
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center p-4">
+      <h1 className="text-2xl font-bold mb-2">User Dashboard</h1>
+      <p className="mb-1 text-muted-foreground">
+        Welcome back, {user ? `${user.firstName} (@${user.username})` : "friend"}!
+      </p>
+      <p className="mb-4 text-muted-foreground text-sm">
+        Role: {user?.role ?? "unknown"}
+      </p>
+      <button onClick={handleLogout} className="text-primary underline">
+        Logout
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+### FILE PATH: src/pages/Landing/LandingPage.tsx
+```tsx
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import {
+  Instagram,
+  Facebook,
+  Youtube,
+  Music2,
+  Globe,
+  Send,
+  MessageCircle,
+  Linkedin,
+  Smartphone,
+  Wallet,
+  ShieldCheck,
+  Zap,
+  Users,
+  TrendingUp,
+  ArrowRight,
+  CheckCircle2,
+  Menu,
+  X,
+} from 'lucide-react'
+import heroImage from '../../assets/hero-earner.jpg'
+import '../../App.css'
+import '../../styles.css'
+
+const nav = [
+  { label: 'How it works', href: '#how' },
+  { label: 'Tasks', href: '#tasks' },
+  { label: 'Earnings', href: '#earnings' },
+  { label: 'FAQ', href: '#faq' },
+]
+
+const categories = [
+  { name: 'Instagram', icon: Instagram, rate: '₦8 – ₦25' },
+  { name: 'TikTok', icon: Music2, rate: '₦10 – ₦30' },
+  { name: 'Facebook', icon: Facebook, rate: '₦8 – ₦20' },
+  { name: 'YouTube', icon: Youtube, rate: '₦15 – ₦50' },
+  { name: 'WhatsApp', icon: MessageCircle, rate: '₦5 – ₦15' },
+  { name: 'Telegram', icon: Send, rate: '₦8 – ₦20' },
+  { name: 'LinkedIn', icon: Linkedin, rate: '₦12 – ₦30' },
+  { name: 'Website Visit', icon: Globe, rate: '₦5 – ₦12' },
+  { name: 'App Download', icon: Smartphone, rate: '₦40 – ₦150' },
+]
+
+const steps = [
+  {
+    n: '01',
+    title: 'Create your free account',
+    body: 'Sign up as a worker to earn or an advertiser to grow. Your Taskora wallet is auto-created.',
+  },
+  {
+    n: '02',
+    title: 'Pick a task or post one',
+    body: 'Workers browse tasks by category. Advertisers set budget, quantity and worker pay in Naira.',
+  },
+  {
+    n: '03',
+    title: 'Submit proof & get paid',
+    body: 'Upload a screenshot or link. Once approved, Naira drops straight into your wallet.',
+  },
+]
+
+const trustBadges = [
+  { icon: ShieldCheck, label: 'Escrowed budgets' },
+  { icon: Zap, label: 'Paystack payouts' },
+  { icon: Users, label: 'Real Nigerian workers' },
+  { icon: TrendingUp, label: 'Verified engagement' },
+]
+
+const faqs = [
+  {
+    q: 'How fast do I get paid?',
+    a: 'Approved submissions credit your Taskora wallet instantly. Withdrawals via Paystack process in minutes on business days.',
+  },
+  {
+    q: 'Is there a minimum to start earning?',
+    a: 'None. Sign up free, complete your first task and start earning. Withdrawals start from ₦500.',
+  },
+  {
+    q: 'How do advertisers know engagement is real?',
+    a: 'Every task requires proof — screenshot, link or timed action. Reviewers verify before your budget is released.',
+  },
+  {
+    q: 'What does it cost to post a task?',
+    a: 'You only pay the worker rate plus a small platform fee. Set your own budget, pause any time.',
+  },
+]
+
+function useScrolled() {
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  return scrolled
+}
+
+function Header() {
+  const scrolled = useScrolled()
+  const [open, setOpen] = useState(false)
+  return (
+    <header className={`header ${scrolled ? 'header-scrolled' : 'header-normal'}`}>
+      <div className="header-container">
+        <div className={`header-nav glass ${scrolled ? 'with-shadow' : ''}`}>
+          <a href="#" className="header-logo">
+            <img src="/icon.png" alt="Taskora" className="header-logo-icon" />
+            <span className="header-logo-text">Taskora</span>
+          </a>
+          <nav className="header-nav-menu">
+            {nav.map((i) => (
+              <a key={i.href} href={i.href} className="nav-link">
+                {i.label}
+              </a>
+            ))}
+          </nav>
+          <div className="header-actions">
+            <a href="#signin" className="header-signin">
+              Sign in
+            </a>
+            <Link to="/signup" className="header-getstarted btn-glow">
+              Get started
+            </Link>
+          </div>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="menu-toggle"
+            aria-label="Toggle menu"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+        {open && (
+          <div className="glass mobile-menu">
+            <div className="mobile-menu-nav">
+              {nav.map((i) => (
+                <a
+                  key={i.href}
+                  href={i.href}
+                  onClick={() => setOpen(false)}
+                  className="nav-link"
+                >
+                  {i.label}
+                </a>
+              ))}
+            </div>
+            <div className="mobile-menu-actions">
+              <a href="#signin" className="mobile-signin">
+                Sign in
+              </a>
+              <Link to="/signup" className="mobile-getstarted" onClick={() => setOpen(false)}>
+                Get started
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  )
+}
+
+function Hero() {
+  return (
+    <section className="hero">
+      <div className="hero-orb-1" />
+      <div className="hero-orb-2" />
+
+      <div className="hero-content">
+        <div className="hero-left">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="hero-badge glass"
+          >
+            <span className="hero-badge-dot" />
+            <span>Now paying out in Naira via Paystack</span>
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.05 }}
+            className="hero-title"
+          >
+            Follow. Like. Watch.
+            <br />
+            <span className="text-gradient">Cash out in Naira.</span>
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="hero-description"
+          >
+            Taskora pays real Nigerians to complete simple social tasks —
+            following pages, watching videos, downloading apps and more.
+            Brands get real reach. Workers get real money.
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+            className="hero-buttons"
+          >
+            <Link to="/signup" className="hero-btn-primary btn-glow">
+              Start earning free
+              <ArrowRight className="h-4 w-4" style={{ transition: 'all 0.3s ease' }} />
+            </Link>
+            <a href="#post" className="hero-btn-secondary glass">
+              Post a task
+            </a>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="hero-stats"
+          >
+            {[
+              { k: '₦42M+', v: 'Paid out' },
+              { k: '128k', v: 'Active workers' },
+              { k: '9', v: 'Task platforms' },
+            ].map((s) => (
+              <div key={s.v} className="hero-stat glass">
+                <div className="hero-stat-number">{s.k}</div>
+                <div className="hero-stat-label">{s.v}</div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7 }}
+          className="hero-right"
+        >
+          <div className="hero-image-container">
+            <img
+              src={heroImage}
+              alt="Nigerian earner smiling at phone with cash"
+              className="hero-image"
+            />
+            <div className="hero-image::after" />
+          </div>
+
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            className="floating-card glass-strong floating-card-left"
+            style={{ background: 'rgba(23, 37, 84, 0.78)', backdropFilter: 'blur(24px)' }}
+          >
+            <div className="floating-card-icon" style={{ background: 'rgba(37, 99, 235, 0.25)' }}>
+              <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-accent" style={{ height: '1rem', width: '1rem' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="floating-card-text-small">Just paid</div>
+              <div className="floating-card-text-bold" style={{ fontFamily: 'var(--font-display)' }}>+ ₦2,450</div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+            className="floating-card glass-strong floating-card-right"
+            style={{ background: 'rgba(23, 37, 84, 0.78)', backdropFilter: 'blur(24px)' }}
+          >
+            <div className="floating-card-icon" style={{ background: 'rgba(96, 165, 250, 0.25)' }}>
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-accent" style={{ height: '1rem', width: '1rem' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="floating-card-text-small">Task approved</div>
+              <div className="floating-card-text-bold" style={{ fontFamily: 'var(--font-display)' }}>Instagram follow</div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function Marquee() {
+  const items = [...trustBadges, ...trustBadges, ...trustBadges]
+  return (
+    <div className="marquee">
+      <div className="marquee-track animate-marquee">
+        {items.map((b, i) => {
+          const Icon = b.icon
+          return (
+            <div key={i} className="marquee-item">
+              <Icon className="marquee-icon" />
+              <span>{b.label}</span>
+              <span className="marquee-dot" />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function HowItWorks() {
+  return (
+    <section id="how" className="how-it-works">
+      <div className="section-container">
+        <div className="section-header">
+          <span className="section-label">How it works</span>
+          <h2 className="section-title">
+            From sign up to <span className="text-gradient">payout</span> in minutes.
+          </h2>
+        </div>
+
+        <div className="steps-grid">
+          {steps.map((s, i) => (
+            <motion.div
+              key={s.n}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              className="step-card glass"
+            >
+              <div className="step-number">{s.n}</div>
+              <h3 className="step-title">{s.title}</h3>
+              <p className="step-description">{s.body}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function TaskCategories() {
+  return (
+    <section id="tasks" className="task-categories">
+      <div className="section-container">
+        <div className="task-header">
+          <div className="section-header">
+            <span className="section-label">Task categories</span>
+            <h2 className="section-title">
+              Nine platforms.
+              <br />
+              One wallet.
+            </h2>
+          </div>
+          <p className="task-description">
+            Instagram, TikTok, YouTube, Facebook, WhatsApp, Telegram, LinkedIn,
+            websites and app downloads — pick a task, deliver, get paid.
+          </p>
+        </div>
+
+        <div className="categories-grid">
+          {categories.map((c, i) => {
+            const Icon = c.icon
+            return (
+              <motion.div
+                key={c.name}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.04 }}
+                className="category-card glass"
+              >
+                <div className="category-content">
+                  <div className="category-icon">
+                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="category-info">
+                    <div className="category-name">{c.name}</div>
+                    <div className="category-label">per task</div>
+                  </div>
+                </div>
+                <div className="category-rate">{c.rate}</div>
+              </motion.div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Earnings() {
+  return (
+    <section id="earnings" className="earnings">
+      <div className="earnings-grid section-container">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="earnings-card glass-strong"
+        >
+          <div className="earnings-header">
+            <div>
+              <div className="earnings-amount-label">Your wallet</div>
+              <div className="earnings-amount">
+                ₦ <span className="text-gradient">28,450</span>
+              </div>
+              <div className="earnings-balance">Available balance • NGN</div>
+            </div>
+            <div className="earnings-badge glass">+₦4,200 this week</div>
+          </div>
+
+          <div className="earnings-transactions">
+            {[
+              { t: 'Instagram follow', a: '+₦25', d: 'Just now' },
+              { t: 'TikTok view (60s)', a: '+₦18', d: '2m ago' },
+              { t: 'App download — GTB', a: '+₦150', d: '12m ago' },
+              { t: 'Website visit', a: '+₦8', d: '35m ago' },
+            ].map((row) => (
+              <div key={row.t} className="transaction-item glass">
+                <div className="transaction-info">
+                  <div className="transaction-title">{row.t}</div>
+                  <div className="transaction-time">{row.d}</div>
+                </div>
+                <div className="transaction-amount">{row.a}</div>
+              </div>
+            ))}
+          </div>
+
+          <button className="earnings-withdraw btn-glow">Withdraw to bank</button>
+        </motion.div>
+
+        <div className="earnings-right">
+          <span className="section-label">Real Naira, real fast</span>
+          <h2 className="section-title">
+            One wallet. <span className="text-gradient">Every task.</span>
+          </h2>
+          <p style={{ marginTop: '1rem', maxWidth: '28rem', fontSize: '0.75rem', color: 'var(--muted-foreground)', lineHeight: '1.5' }}>
+            Every approved task lands in your Taskora wallet immediately. Move it
+            to any Nigerian bank via Paystack, or keep it to post your own tasks
+            and boost your brand.
+          </p>
+          <ul className="earnings-features">
+            {[
+              'Withdraw to any Nigerian bank from ₦500',
+              'Escrow protects both workers and advertisers',
+              'Referral bonus on every friend you invite',
+              'Live transaction ledger — every kobo tracked',
+            ].map((f) => (
+              <li key={f} className="feature-item">
+                <CheckCircle2 className="feature-icon" />
+                <span className="feature-text">{f}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function FAQ() {
+  return (
+    <section id="faq" className="faq">
+      <div className="faq-container">
+        <div className="faq-header section-header">
+          <span className="section-label">FAQ</span>
+          <h2 className="section-title">Questions, answered.</h2>
+        </div>
+        <div className="faq-list">
+          {faqs.map((f, i) => (
+            <motion.details
+              key={f.q}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.35, delay: i * 0.05 }}
+              className="faq-item glass"
+            >
+              <summary className="faq-item summary">
+                <span>{f.q}</span>
+                <span className="faq-toggle">+</span>
+              </summary>
+              <p className="faq-answer">{f.a}</p>
+            </motion.details>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function CTA() {
+  return (
+    <section id="signup" className="cta">
+      <div className="cta-container">
+        <div className="cta-box glass-strong">
+          <div className="cta-content">
+            <h2 className="cta-title">Start earning tonight.</h2>
+            <p className="cta-description">
+              Join thousands of Nigerians already using Taskora to earn from their
+              phone. Free forever to sign up.
+            </p>
+            <div className="cta-buttons">
+              <Link to="/signup" className="cta-btn-primary btn-glow">
+                Create free account <ArrowRight className="h-4 w-4" />
+              </Link>
+              <a href="#post" className="cta-btn-secondary glass">
+                I'm an advertiser
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="footer">
+      <div className="footer-container">
+        <div className="footer-brand">
+          <img src="/icon.png" alt="Taskora" className="footer-logo-icon" />
+          <span className="footer-logo-text">Taskora</span>
+          <span className="footer-tag">Made in Nigeria 🇳🇬</span>
+        </div>
+        <div className="footer-copyright">
+          © {new Date().getFullYear()} Taskora. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)', color: 'var(--foreground)' }}>
+      <Header />
+      <main>
+        <Hero />
+        <Marquee />
+        <HowItWorks />
+        <TaskCategories />
+        <Earnings />
+        <FAQ />
+        <CTA />
+      </main>
+      <Footer />
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Login/LoginPage.tsx
+```tsx
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react'
+import '../../App.css'
+import '../../styles.css'
+import { login, ApiError } from '../../api/auth'
+import { setAuthSession } from '../../lib/auth-storage'
+
+export default function LoginPage() {
+  const navigate = useNavigate()
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  function update(field: string, val: string) {
+    setForm((f) => ({ ...f, [field]: val }))
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }))
+    if (apiError) setApiError(null)
+  }
+
+  function validate() {
+    const next: Record<string, string> = {}
+    if (!form.email.trim()) next.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      next.email = 'Enter a valid email address'
+    if (!form.password) next.password = 'Password is required'
+    setErrors(next)
+    return Object.keys(next).length === 0
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setApiError(null)
+    if (!validate()) return
+
+    setSubmitting(true)
+    try {
+      const res = await login({
+        email: form.email,
+        password: form.password,
+      })
+      setAuthSession(res.accessToken, res.refreshToken, res.user)
+      navigate('/dashboard')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setApiError(err.message)
+      } else {
+        setApiError('Something went wrong. Please try again.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <div className="auth-orb-1" />
+      <div className="auth-orb-2" />
+
+      <div className="auth-container">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="auth-card glass-strong"
+        >
+          <Link to="/" className="auth-logo">
+            <img src="/icon.png" alt="Taskora" className="auth-logo-icon" />
+            <span className="auth-logo-text">Taskora</span>
+          </Link>
+
+          <div className="auth-header">
+            <h1 className="auth-title">
+              Welcome <span className="text-gradient">back</span>
+            </h1>
+            <p className="auth-subtitle">
+              Sign in to your Taskora account to continue earning.
+            </p>
+          </div>
+
+          <AnimatePresence>
+            {apiError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="auth-api-error glass"
+              >
+                <span>{apiError}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            <div className="auth-field">
+              <label className="auth-label">Email address</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.email ? 'auth-input-error' : ''
+                }`}
+              >
+                <Mail className="h-4 w-4 auth-input-icon" />
+                <input
+                  type="email"
+                  className="auth-input"
+                  placeholder="ada@example.com"
+                  value={form.email}
+                  onChange={(e) => update('email', e.target.value)}
+                />
+              </div>
+              {errors.email && (
+                <span className="auth-error">{errors.email}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <div className="auth-label-row">
+                <label className="auth-label">Password</label>
+                <a
+                  href="#forgot"
+                  className="auth-footer-link"
+                  style={{ fontSize: '0.75rem' }}
+                >
+                  Forgot password?
+                </a>
+              </div>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.password ? 'auth-input-error' : ''
+                }`}
+              >
+                <Lock className="h-4 w-4 auth-input-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="auth-input"
+                  placeholder="Enter your password"
+                  value={form.password}
+                  onChange={(e) => update('password', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="auth-input-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <span className="auth-error">{errors.password}</span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="auth-submit btn-glow"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 auth-spinner" />
+              ) : (
+                <>
+                  Sign in <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <p className="auth-footer-text">
+            Don't have an account?{' '}
+            <Link to="/signup" className="auth-footer-link">
+              Create one free
+            </Link>
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/SignUp/SignUpPage.tsx
+```tsx
+import { useState, useRef, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  User,
+  AtSign,
+  Mail,
+  Phone,
+  Lock,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  Briefcase,
+  Megaphone,
+  Check,
+  ArrowRight,
+  Loader2,
+} from 'lucide-react'
+import '../../App.css'
+import '../../styles.css'
+import { signUp, login, ApiError } from '../../api/auth'
+import { setAuthSession } from '../../lib/auth-storage'
+
+// ── Role data ────────────────────────────────────────────────────────────────
+
+const roles = [
+  {
+    value: 'worker',
+    label: 'Worker',
+    description: 'Complete tasks and earn Naira',
+    icon: Briefcase,
+  },
+  {
+    value: 'advertiser',
+    label: 'Advertiser',
+    description: 'Post tasks and grow your brand',
+    icon: Megaphone,
+  },
+]
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function RoleDropdown({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = roles.find((r) => r.value === value)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  return (
+    <div className="role-dropdown" ref={ref}>
+      <button
+        type="button"
+        className={`role-trigger glass ${open ? 'role-trigger-open' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="role-trigger-left">
+          <span className="role-icon-wrap">
+            {selected ? (
+              <selected.icon className="h-4 w-4" />
+            ) : (
+              <Briefcase className="h-4 w-4" />
+            )}
+          </span>
+          <span className="role-trigger-text">
+            <span className="role-trigger-label">
+              {selected ? selected.label : 'Select your role'}
+            </span>
+            {selected && (
+              <span className="role-trigger-desc">{selected.description}</span>
+            )}
+          </span>
+        </span>
+        <ChevronDown
+          className="h-4 w-4 role-chevron"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="role-menu glass-strong"
+          >
+            {roles.map((r) => {
+              const isSelected = r.value === value
+              return (
+                <button
+                  type="button"
+                  key={r.value}
+                  className={`role-option ${isSelected ? 'role-option-selected' : ''}`}
+                  onClick={() => {
+                    onChange(r.value)
+                    setOpen(false)
+                  }}
+                >
+                  <span className="role-icon-wrap">
+                    <r.icon className="h-4 w-4" />
+                  </span>
+                  <span className="role-trigger-text">
+                    <span className="role-trigger-label">{r.label}</span>
+                    <span className="role-trigger-desc">{r.description}</span>
+                  </span>
+                  {isSelected && <Check className="h-4 w-4 role-check" />}
+                </button>
+              )
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function PasswordStrength({ password }: { password: string }) {
+  const getStrength = () => {
+    let score = 0
+    if (password.length >= 8) score++
+    if (/[A-Z]/.test(password)) score++
+    if (/[0-9]/.test(password)) score++
+    if (/[^A-Za-z0-9]/.test(password)) score++
+    return score
+  }
+  const strength = getStrength()
+  const labels = ['Weak', 'Fair', 'Good', 'Strong']
+  const label = password ? labels[Math.max(strength - 1, 0)] : ''
+
+  if (!password) return null
+
+  return (
+    <div className="password-strength">
+      <div className="password-strength-bars">
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className={`strength-bar ${i < strength ? `strength-bar-${strength}` : ''}`}
+          />
+        ))}
+      </div>
+      <span className="password-strength-label">{label}</span>
+    </div>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+export default function SignUpPage() {
+  const navigate = useNavigate()
+
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    phone: '',
+    role: '',
+    password: '',
+    confirmPassword: '',
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  function update(field: string, val: string) {
+    setForm((f) => ({ ...f, [field]: val }))
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }))
+    if (apiError) setApiError(null)
+  }
+
+  function validate() {
+    const next: Record<string, string> = {}
+    if (!form.firstName.trim()) next.firstName = 'First name is required'
+    if (!form.lastName.trim()) next.lastName = 'Last name is required'
+    if (!form.username.trim()) next.username = 'Username is required'
+    else if (!/^[a-zA-Z0-9_]{3,20}$/.test(form.username))
+      next.username = '3-20 characters, letters/numbers/underscore only'
+    if (!form.email.trim()) next.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      next.email = 'Enter a valid email address'
+    if (!form.phone.trim()) next.phone = 'Phone number is required'
+    else if (!/^[0-9+\s-]{10,15}$/.test(form.phone))
+      next.phone = 'Enter a valid phone number'
+    if (!form.role) next.role = 'Please select a role'
+    if (!form.password) next.password = 'Password is required'
+    else if (form.password.length < 8)
+      next.password = 'Password must be at least 8 characters'
+    if (form.confirmPassword !== form.password)
+      next.confirmPassword = 'Passwords do not match'
+    setErrors(next)
+    return Object.keys(next).length === 0
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setApiError(null)
+    if (!validate()) return
+
+    setSubmitting(true)
+    try {
+      // 1. Register the account
+      await signUp({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        username: form.username,
+        email: form.email,
+        phoneNumber: form.phone.replace(/\s/g, ''),
+        role: form.role,
+        password: form.password,
+      })
+
+      // 2. /auth/register doesn't return tokens, so immediately log the
+      //    new user in to get an access/refresh token pair and land them
+      //    straight in the dashboard.
+      const loginRes = await login({
+        email: form.email,
+        password: form.password,
+      })
+      setAuthSession(loginRes.accessToken, loginRes.refreshToken, loginRes.user)
+      navigate('/dashboard')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setApiError(err.message)
+      } else {
+        setApiError('Something went wrong. Please try again.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <div className="auth-orb-1" />
+      <div className="auth-orb-2" />
+
+      <div className="auth-container">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="auth-card glass-strong"
+        >
+          <Link to="/" className="auth-logo">
+            <img src="/icon.png" alt="Taskora" className="auth-logo-icon" />
+            <span className="auth-logo-text">Taskora</span>
+          </Link>
+
+          <div className="auth-header">
+            <h1 className="auth-title">
+              Create your <span className="text-gradient">free account</span>
+            </h1>
+            <p className="auth-subtitle">
+              Join Taskora and start earning or growing your brand today.
+            </p>
+          </div>
+
+          <AnimatePresence>
+            {apiError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="auth-api-error glass"
+              >
+                <span>{apiError}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            <div className="auth-row">
+              <div className="auth-field">
+                <label className="auth-label">First name</label>
+                <div
+                  className={`auth-input-wrap glass ${
+                    errors.firstName ? 'auth-input-error' : ''
+                  }`}
+                >
+                  <User className="h-4 w-4 auth-input-icon" />
+                  <input
+                    type="text"
+                    className="auth-input"
+                    placeholder="Ada"
+                    value={form.firstName}
+                    onChange={(e) => update('firstName', e.target.value)}
+                  />
+                </div>
+                {errors.firstName && (
+                  <span className="auth-error">{errors.firstName}</span>
+                )}
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-label">Last name</label>
+                <div
+                  className={`auth-input-wrap glass ${
+                    errors.lastName ? 'auth-input-error' : ''
+                  }`}
+                >
+                  <User className="h-4 w-4 auth-input-icon" />
+                  <input
+                    type="text"
+                    className="auth-input"
+                    placeholder="Okafor"
+                    value={form.lastName}
+                    onChange={(e) => update('lastName', e.target.value)}
+                  />
+                </div>
+                {errors.lastName && (
+                  <span className="auth-error">{errors.lastName}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Username</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.username ? 'auth-input-error' : ''
+                }`}
+              >
+                <AtSign className="h-4 w-4 auth-input-icon" />
+                <input
+                  type="text"
+                  className="auth-input"
+                  placeholder="ada_okafor"
+                  value={form.username}
+                  onChange={(e) => update('username', e.target.value)}
+                />
+              </div>
+              {errors.username && (
+                <span className="auth-error">{errors.username}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Email address</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.email ? 'auth-input-error' : ''
+                }`}
+              >
+                <Mail className="h-4 w-4 auth-input-icon" />
+                <input
+                  type="email"
+                  className="auth-input"
+                  placeholder="ada@example.com"
+                  value={form.email}
+                  onChange={(e) => update('email', e.target.value)}
+                />
+              </div>
+              {errors.email && (
+                <span className="auth-error">{errors.email}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Phone number</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.phone ? 'auth-input-error' : ''
+                }`}
+              >
+                <Phone className="h-4 w-4 auth-input-icon" />
+                <input
+                  type="tel"
+                  className="auth-input"
+                  placeholder="+234 801 234 5678"
+                  value={form.phone}
+                  onChange={(e) => update('phone', e.target.value)}
+                />
+              </div>
+              {errors.phone && (
+                <span className="auth-error">{errors.phone}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">I want to</label>
+              <RoleDropdown
+                value={form.role}
+                onChange={(v) => update('role', v)}
+              />
+              {errors.role && (
+                <span className="auth-error">{errors.role}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Password</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.password ? 'auth-input-error' : ''
+                }`}
+              >
+                <Lock className="h-4 w-4 auth-input-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="auth-input"
+                  placeholder="Create a strong password"
+                  value={form.password}
+                  onChange={(e) => update('password', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="auth-input-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <PasswordStrength password={form.password} />
+              {errors.password && (
+                <span className="auth-error">{errors.password}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Confirm password</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.confirmPassword ? 'auth-input-error' : ''
+                }`}
+              >
+                <Lock className="h-4 w-4 auth-input-icon" />
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  className="auth-input"
+                  placeholder="Re-enter your password"
+                  value={form.confirmPassword}
+                  onChange={(e) => update('confirmPassword', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="auth-input-toggle"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  aria-label="Toggle password visibility"
+                >
+                  {showConfirm ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {errors.confirmPassword && (
+                <span className="auth-error">{errors.confirmPassword}</span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="auth-submit btn-glow"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 auth-spinner" />
+              ) : (
+                <>
+                  Create free account <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <p className="auth-footer-text">
+            Already have an account?{' '}
+            <Link to="/login" className="auth-footer-link">
+              Sign in
+            </Link>
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/routes/AppRoutes.tsx
+```tsx
+import { Routes, Route, Link, Navigate } from "react-router-dom";
+import LandingPage from "../pages/Landing/LandingPage";
+import LoginPage from "../pages/Login/LoginPage";
+import SignUpPage from "../pages/SignUp/SignUpPage";
+import DashboardPage from "../pages/Dashboard/DashboardPage";
+import { isAuthenticated } from "../lib/auth-storage";
+
+// Blocks access to authenticated-only routes (e.g. /dashboard).
+// Bounces unauthenticated visitors to /login.
+function RequireAuth({ children }: { children: JSX.Element }) {
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+// Skips public auth pages (/, /login, /signup) for already-logged-in
+// users and sends them straight to /dashboard instead.
+function RedirectIfAuth({ children }: { children: JSX.Element }) {
+  if (isAuthenticated()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
+export default function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public Routes — redirect away if already authenticated */}
+      <Route
+        path="/"
+        element={
+          <RedirectIfAuth>
+            <LandingPage />
+          </RedirectIfAuth>
+        }
+      />
+      <Route
+        path="/login"
+        element={
+          <RedirectIfAuth>
+            <LoginPage />
+          </RedirectIfAuth>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <RedirectIfAuth>
+            <SignUpPage />
+          </RedirectIfAuth>
+        }
+      />
+
+      {/* Protected Dashboard Route */}
+      <Route
+        path="/dashboard"
+        element={
+          <RequireAuth>
+            <DashboardPage />
+          </RequireAuth>
+        }
+      />
+
+      {/* Fallback 404 Route */}
+      <Route
+        path="*"
+        element={
+          <div className="flex h-screen flex-col items-center justify-center">
+            <h1 className="text-4xl font-bold">404</h1>
+            <p className="text-muted-foreground my-2">Page not found</p>
+            <Link to="/" className="text-primary underline">Go back home</Link>
+          </div>
+        }
+      />
+    </Routes>
+  );
+}
+```
+
+---
+
+### FILE PATH: src/styles.css
+```css
+/* === CSS VARIABLES & THEME === */
+:root {
+  /* Spacing */
+  --radius: 0.875rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  /* Taskora Palette - Deep Space Theme */
+  --background: #0B1120;      /* oklch(0.18 0.06 265) */
+  --surface: #172554;         /* oklch(0.27 0.11 268) */
+  --foreground: #faf8f6;      /* oklch(0.98 0.005 250) */
+  --card: rgba(23, 37, 84, 0.6);
+  --card-foreground: #faf8f6;
+  --popover: #0f1b2e;         /* oklch(0.22 0.08 266) */
+  --popover-foreground: #faf8f6;
+  --primary: #2563EB;         /* oklch(0.58 0.22 265) */
+  --primary-foreground: #faf8f6;
+  --secondary: #344a7f;       /* oklch(0.32 0.1 268) */
+  --secondary-foreground: #faf8f6;
+  --muted: #4d5f8f;           /* oklch(0.3 0.08 268) */
+  --muted-foreground: #b3bfd6; /* oklch(0.75 0.04 260) */
+  --accent: #60A5FA;          /* oklch(0.78 0.14 260) */
+  --accent-foreground: #0B1120;
+  --destructive: #ef4444;     /* oklch(0.65 0.24 25) */
+  --destructive-foreground: #faf8f6;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #60A5FA;
+
+  /* Gradients */
+  --gradient-hero: radial-gradient(ellipse at top, rgba(37, 99, 235, 0.35), transparent 60%), radial-gradient(ellipse at bottom right, rgba(96, 165, 250, 0.2), transparent 55%);
+  --gradient-brand: linear-gradient(135deg, #2563EB, #60A5FA);
+  --shadow-glow: 0 20px 60px -20px rgba(37, 99, 235, 0.6);
+  --shadow-card: 0 10px 40px -10px rgba(11, 17, 32, 0.5);
+
+  /* Typography */
+  --font-display: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* === GLOBAL STYLES === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+}
+
+html {
+  background-color: var(--background);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* === UTILITY CLASSES === */
+
+/* Glass effect */
+.glass {
+  background: rgba(23, 37, 84, 0.55);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+}
+
+.glass-strong {
+  background: rgba(23, 37, 84, 0.78);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+}
+
+/* Text gradient */
+.text-gradient {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Button glow */
+.btn-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+/* === ANIMATIONS === */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* === RESPONSIVE TYPOGRAPHY === */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+/* === UTILITY HELPERS === */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container {
+    max-width: 640px;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1024px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
+}
+/* ============================================
+   SIGNUP / AUTH PAGE
+   ============================================ */
+
+.auth-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.auth-orb-1,
+.auth-orb-2 {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.auth-orb-1 {
+  width: 26rem;
+  height: 26rem;
+  top: -8rem;
+  left: -6rem;
+  background: radial-gradient(circle, var(--primary, #7c3aed) 0%, transparent 70%);
+}
+
+.auth-orb-2 {
+  width: 22rem;
+  height: 22rem;
+  bottom: -8rem;
+  right: -6rem;
+  background: radial-gradient(circle, #06b6d4 0%, transparent 70%);
+}
+
+.auth-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 30rem;
+}
+
+.auth-card {
+  border-radius: 1.5rem;
+  padding: 2rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  text-decoration: none;
+}
+
+.auth-logo-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.auth-logo-text {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--foreground);
+}
+
+.auth-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.auth-subtitle {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.auth-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .auth-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.auth-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.auth-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.auth-input-wrap:focus-within {
+  border-color: var(--primary, #7c3aed);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.auth-input-error {
+  border-color: #ef4444 !important;
+}
+
+.auth-input-icon {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+.auth-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  color: var(--foreground);
+}
+
+.auth-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+.auth-input-toggle {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.auth-input-toggle:hover {
+  color: var(--foreground);
+}
+
+.auth-error {
+  font-size: 0.72rem;
+  color: #ef4444;
+  padding-left: 0.15rem;
+}
+
+.auth-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 0.85rem;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-footer-text {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.auth-footer-link {
+  color: var(--primary, #7c3aed);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-left: 0.15rem;
+}
+
+.password-strength-bars {
+  display: flex;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.strength-bar {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.25);
+  transition: background 0.2s ease;
+}
+
+.strength-bar-1 { background: #ef4444; }
+.strength-bar-2 { background: #f59e0b; }
+.strength-bar-3 { background: #eab308; }
+.strength-bar-4 { background: #22c55e; }
+
+.password-strength-label {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  min-width: 3rem;
+  text-align: right;
+}
+
+.role-dropdown {
+  position: relative;
+}
+
+.role-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.role-trigger-open {
+  border-color: var(--primary, #7c3aed);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.role-trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.role-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--primary, #7c3aed);
+  flex-shrink: 0;
+}
+
+.role-trigger-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.role-trigger-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.role-trigger-desc {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role-chevron {
+  color: var(--muted-foreground);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.role-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  border-radius: 0.85rem;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.role-option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.6rem;
+  border-radius: 0.65rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.role-option:hover {
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.role-option-selected {
+  background: rgba(124, 58, 237, 0.14);
+}
+
+.role-check {
+  margin-left: auto;
+  color: var(--primary, #7c3aed);
+  flex-shrink: 0;
+}
+
+/* ── Login: label row with inline forgot-password link ── */
+.auth-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+/* ── Auth: API-level error banner ───────────────────────────────────────────── */
+.auth-api-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Auth: submit button spinner ────────────────────────────────────────────── */
+.auth-spinner {
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+```
+
+---

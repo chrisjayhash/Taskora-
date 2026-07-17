@@ -9,6 +9,22 @@
     ".tsx": {
       "enabled": true,
       "run": "typescript-language-server --stdio"
+    },
+    ".sh": {
+      "enabled": true,
+      "run": "bash-language-server start"
+    },
+    ".mjs": {
+      "enabled": true,
+      "run": "typescript-language-server --stdio"
+    },
+    ".ts": {
+      "enabled": true,
+      "run": "typescript-language-server --stdio"
+    },
+    ".css": {
+      "enabled": true,
+      "run": "vscode-css-language-server --stdio"
     }
   }
 }
