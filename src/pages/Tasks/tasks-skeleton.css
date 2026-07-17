@@ -1,0 +1,91 @@
+/* Card skeleton (shimmer placeholder) for the browse list */
+
+.task-skel {
+  border-radius: 1.15rem;
+  overflow: hidden;
+  background: rgba(23, 37, 84, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.task-skel-banner {
+  height: 9rem;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-body {
+  padding: 0.55rem 0.7rem 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.task-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-skel-bar {
+  height: 0.7rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-bar.sm { width: 3rem; }
+.task-skel-bar.md { width: 5rem; }
+.task-skel-bar.lg { width: 7.5rem; }
+.task-skel-bar.xl { width: 9rem; }
+.task-skel-bar.grow { flex: 1; }
+
+.task-skel-pill {
+  height: 0.95rem;
+  width: 4rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.task-skel-btn {
+  flex: 1;
+  height: 1.6rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+@keyframes task-skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

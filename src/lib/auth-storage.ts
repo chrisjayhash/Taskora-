@@ -2,6 +2,12 @@ const ACCESS_TOKEN_KEY = 'taskora_access_token'
 const REFRESH_TOKEN_KEY = 'taskora_refresh_token'
 const USER_KEY = 'taskora_user'
 
+export interface StoredWallet {
+  id: string
+  balanceKobo: string
+  currency: string
+}
+
 export interface StoredUser {
   id: string
   firstName: string
@@ -9,6 +15,13 @@ export interface StoredUser {
   username: string
   email: string
   role: string
+
+  // Optional fields populated by /me
+  phoneNumber?: string
+  referralCode?: string
+  isVerified?: boolean
+  referralCount?: number
+  wallet?: StoredWallet
 }
 
 // ── Write ────────────────────────────────────────────────────────────────────
@@ -20,6 +33,18 @@ export function setAuthSession(
 ) {
   localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function setAccessToken(accessToken: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+}
+
+export function setRefreshToken(refreshToken: string) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+}
+
+export function setStoredUser(user: StoredUser) {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
@@ -49,16 +74,12 @@ export function getStoredUser(): StoredUser | null {
   }
 }
 
-// NOTE: this only checks for a token's *presence*, not its expiry.
-// The access token is short-lived (~15 min). Once a refresh-token flow
-// endpoint exists (e.g. POST /auth/refresh), wire it up here so expired
-// access tokens are silently renewed using the refresh token.
+// NOTE: this checks for token presence (not expiry). Expiry is handled
+// by API calls (refresh on 401/expired message).
 export function isAuthenticated(): boolean {
   return !!getAccessToken()
 }
 
-// Convenience helper for attaching the bearer token to future
-// authenticated API requests (dashboard data, wallet, tasks, etc.)
 export function getAuthHeader(): Record<string, string> {
   const token = getAccessToken()
   return token ? { Authorization: `Bearer ${token}` } : {}

@@ -1,14 +1,18 @@
 import { motion } from 'framer-motion'
 import { statCards } from '../../../lib/dashboard-mock'
 
-export default function StatsGrid() {
+export default function StatsGrid({ balance }: { balance?: string }) {
+  const cards = statCards.map((c) =>
+    c.id === 'balance' && balance ? { ...c, value: balance } : c,
+  )
+
   return (
     <div className="dash-section">
       <div className="dash-section-header">
         <h3 className="dash-section-title">Your overview</h3>
       </div>
       <div className="dash-stats-grid">
-        {statCards.map((s, i) => {
+        {cards.map((s, i) => {
           const Icon = s.icon
           return (
             <motion.div

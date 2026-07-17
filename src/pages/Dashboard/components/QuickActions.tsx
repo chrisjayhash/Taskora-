@@ -4,7 +4,7 @@ import type { StoredUser } from '../../../lib/auth-storage'
 
 export default function QuickActions({ user }: { user: StoredUser | null }) {
   const [copied, setCopied] = useState(false)
-  const referralCode = user ? user.username.toUpperCase() : 'TASKORA'
+  const referralCode = user?.referralCode || user?.username?.toUpperCase() || 'TASKORA'
 
   function copyCode() {
     navigator.clipboard.writeText(referralCode).then(() => {

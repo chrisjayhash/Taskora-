@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Home,
@@ -20,7 +21,8 @@ const rightTabs = [
   { id: 'more', label: 'More', icon: MenuIcon },
 ]
 
-export default function BottomNav() {
+export default function BottomNav({ role }: { role?: string | null }) {
+  const navigate = useNavigate()
   const [active, setActive] = useState('home')
   const [fabOpen, setFabOpen] = useState(false)
   const fabRef = useRef<HTMLDivElement>(null)
@@ -35,10 +37,25 @@ export default function BottomNav() {
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
+  const isWorker = role === 'worker'
+  const isAdvertiser = role === 'advertiser'
+
+  // - worker: hide "Post a task"
+  // - advertiser: hide "Browse tasks"
+  const showPostTask = !isWorker
+  const showBrowseTasks = !isAdvertiser
+  const hasFabActions = showPostTask || showBrowseTasks
+
+  function navTo(tabId: string) {
+    setActive(tabId)
+    if (tabId === 'home') navigate('/dashboard')
+    if (tabId === 'jobs') navigate('/tasks')
+    // marketplace/more: placeholder for now
+  }
+
   return (
     <nav className="dash-bottom-nav">
       <div className="dash-bottom-nav-inner glass-strong">
-        {/* Left group */}
         <div className="dash-nav-group dash-nav-group-left">
           {leftTabs.map((t) => {
             const Icon = t.icon
@@ -48,7 +65,7 @@ export default function BottomNav() {
                 type="button"
                 key={t.id}
                 className={`dash-nav-item ${isActive ? 'dash-nav-item-active' : ''}`}
-                onClick={() => setActive(t.id)}
+                onClick={() => navTo(t.id)}
               >
                 <Icon className="h-5 w-5" />
                 <span>{t.label}</span>
@@ -57,10 +74,9 @@ export default function BottomNav() {
           })}
         </div>
 
-        {/* Center FAB */}
         <div className="dash-nav-fab-slot" ref={fabRef}>
           <AnimatePresence>
-            {fabOpen && (
+            {fabOpen && hasFabActions && (
               <motion.div
                 initial={{ opacity: 0, y: 12, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -68,12 +84,31 @@ export default function BottomNav() {
                 transition={{ duration: 0.18 }}
                 className="dash-fab-menu glass-strong"
               >
-                <button type="button" className="dash-fab-menu-item">
-                  <ClipboardList className="h-4 w-4" /> Post a task
-                </button>
-                <button type="button" className="dash-fab-menu-item">
-                  <Send className="h-4 w-4" /> Browse tasks
-                </button>
+                {showPostTask && (
+                  <button
+                    type="button"
+                    className="dash-fab-menu-item"
+                    onClick={() => {
+                      setFabOpen(false)
+                      alert('Post a task — coming soon')
+                    }}
+                  >
+                    <ClipboardList className="h-4 w-4" /> Post a task
+                  </button>
+                )}
+
+                {showBrowseTasks && (
+                  <button
+                    type="button"
+                    className="dash-fab-menu-item"
+                    onClick={() => {
+                      setFabOpen(false)
+                      navigate('/tasks')
+                    }}
+                  >
+                    <Send className="h-4 w-4" /> Browse tasks
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -81,7 +116,10 @@ export default function BottomNav() {
           <button
             type="button"
             className="dash-nav-fab"
-            onClick={() => setFabOpen((v) => !v)}
+            onClick={() => {
+              if (!hasFabActions) return
+              setFabOpen((v) => !v)
+            }}
             aria-label="Quick actions"
           >
             <Plus
@@ -94,7 +132,6 @@ export default function BottomNav() {
           </button>
         </div>
 
-        {/* Right group */}
         <div className="dash-nav-group dash-nav-group-right">
           {rightTabs.map((t) => {
             const Icon = t.icon
@@ -104,7 +141,7 @@ export default function BottomNav() {
                 type="button"
                 key={t.id}
                 className={`dash-nav-item ${isActive ? 'dash-nav-item-active' : ''}`}
-                onClick={() => setActive(t.id)}
+                onClick={() => navTo(t.id)}
               >
                 <Icon className="h-5 w-5" />
                 <span>{t.label}</span>
