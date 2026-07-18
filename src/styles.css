@@ -3850,3 +3850,561 @@ html:not([data-theme='dark']) .role-option-flat[data-selected='true'] {
   color: var(--accent);
   flex-shrink: 0;
 }
+
+/* ── Global spinner animation fix ─────────────────────────────────────────── */
+.animate-spin {
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   DEPOSIT PAGE - Full redesign
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.dep-page {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  padding-bottom: 7rem;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+
+.dep-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 6.5rem 1rem 2.5rem;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.08), transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+html[data-theme='dark'] .dep-hero {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.15), transparent);
+}
+
+.dep-hero-orb-1,
+.dep-hero-orb-2,
+.dep-hero-orb-3 {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(40px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.dep-hero-orb-1 {
+  top: -2rem;
+  left: -1.5rem;
+  width: 8rem;
+  height: 8rem;
+  background: #a5b4fc;
+}
+
+.dep-hero-orb-2 {
+  top: 1rem;
+  right: -2rem;
+  width: 7rem;
+  height: 7rem;
+  background: #93c5fd;
+}
+
+.dep-hero-orb-3 {
+  bottom: -2rem;
+  left: 40%;
+  width: 5rem;
+  height: 5rem;
+  background: #c4b5fd;
+}
+
+html[data-theme='dark'] .dep-hero-orb-1 { background: #2563eb; }
+html[data-theme='dark'] .dep-hero-orb-2 { background: #7c3aed; }
+html[data-theme='dark'] .dep-hero-orb-3 { background: #60a5fa; }
+
+.dep-hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dep-hero-icon {
+  height: 3rem;
+  width: 3rem;
+  border-radius: 1rem;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+html:not([data-theme='dark']) .dep-hero-icon {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.dep-hero-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+.dep-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+  margin-top: 0.15rem;
+}
+
+.dep-breadcrumb button {
+  background: none;
+  border: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.dep-breadcrumb button:hover {
+  color: var(--foreground);
+}
+
+.dep-breadcrumb-active {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* ── Shell ────────────────────────────────────────────────────────────────── */
+
+.dep-shell {
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+/* ── Profile Row ──────────────────────────────────────────────────────────── */
+
+.dep-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+html:not([data-theme='dark']) .dep-profile-row {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.dep-avatar {
+  height: 2.75rem;
+  width: 2.75rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.dep-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.dep-profile-username {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.dep-profile-balance {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.dep-profile-currency {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.dep-balance-spin {
+  animation: dep-spin 0.85s linear infinite;
+}
+
+@keyframes dep-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Wallet Card ──────────────────────────────────────────────────────────── */
+
+.dep-wallet-card {
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #0f2857 0%, #0c1e42 50%, #071530 100%);
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(15, 40, 87, 0.4);
+}
+
+html:not([data-theme='dark']) .dep-wallet-card {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.3);
+}
+
+.dep-wallet-card::before {
+  content: '';
+  position: absolute;
+  top: -3rem;
+  right: -3rem;
+  width: 10rem;
+  height: 10rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dep-wallet-card::after {
+  content: '';
+  position: absolute;
+  bottom: -2rem;
+  left: -2rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dep-wallet-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+  position: relative;
+  z-index: 1;
+}
+
+.dep-wallet-card-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.dep-wallet-card-subtitle {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 1.5rem;
+  position: relative;
+  z-index: 1;
+  line-height: 1.4;
+}
+
+.dep-wallet-balance-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0.4rem;
+}
+
+.dep-wallet-balance-amount {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+  position: relative;
+  z-index: 1;
+}
+
+.dep-balance-loading {
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.dep-card {
+  border-radius: 1rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+html:not([data-theme='dark']) .dep-card {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Section Title with accent bar ───────────────────────────────────────── */
+
+.dep-card-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--foreground);
+  text-transform: uppercase;
+}
+
+.dep-card-accent-bar {
+  display: inline-block;
+  width: 3px;
+  height: 1rem;
+  border-radius: 999px;
+  background: #3b82f6;
+  flex-shrink: 0;
+}
+
+/* ── Amount Input ─────────────────────────────────────────────────────────── */
+
+.dep-amount-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.85rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+}
+
+html:not([data-theme='dark']) .dep-amount-input-wrap {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.dep-amount-prefix {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--foreground);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.dep-amount-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+.dep-amount-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.4;
+}
+
+.dep-limit-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+/* ── Order Summary ────────────────────────────────────────────────────────── */
+
+.dep-summary-box {
+  border-radius: 0.85rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  padding: 0.25rem 0;
+  overflow: hidden;
+}
+
+html:not([data-theme='dark']) .dep-summary-box {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.dep-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+}
+
+.dep-summary-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 1rem;
+}
+
+html:not([data-theme='dark']) .dep-summary-divider {
+  background: #e5e7eb;
+}
+
+.dep-summary-label {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dep-summary-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.dep-summary-total-row {
+  padding: 0.9rem 1rem;
+}
+
+.dep-summary-total-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.dep-summary-total-value {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #3b82f6;
+}
+
+.dep-info-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+/* ── Error Box ────────────────────────────────────────────────────────────── */
+
+.dep-error-box {
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  font-size: 0.82rem;
+}
+
+html:not([data-theme='dark']) .dep-error-box {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* ── Submit Button ────────────────────────────────────────────────────────── */
+
+.dep-submit-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.85rem;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: not-allowed;
+  background: var(--border);
+  color: var(--muted-foreground);
+  transition: all 0.25s ease;
+}
+
+.dep-submit-btn.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+}
+
+.dep-submit-btn.active:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.4);
+}
+
+.dep-submit-btn.active:active {
+  transform: translateY(0);
+}
+
+.dep-submit-btn:disabled {
+  opacity: 1;
+}
+
+.dep-submit-spinner {
+  animation: dep-spin 0.75s linear infinite;
+}
+
+/* ── Secure Note ──────────────────────────────────────────────────────────── */
+
+.dep-secure-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 380px) {
+  .dep-wallet-balance-amount {
+    font-size: 1.6rem;
+  }
+
+  .dep-hero-title {
+    font-size: 1.4rem;
+  }
+}
+
+/* ── Deposit wallet card: flatter, less raised ────────────────────────────── */
+
+.dep-wallet-card {
+  box-shadow: 0 4px 12px rgba(15, 40, 87, 0.2);
+}
+
+html:not([data-theme='dark']) .dep-wallet-card {
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}

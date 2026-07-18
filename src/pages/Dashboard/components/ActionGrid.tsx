@@ -59,7 +59,8 @@ export default function ActionGrid() {
       navigate(a.href)
       return
     }
-    alert(`${a.title} — coming soon`)
+    // TODO: coming soon toast
+    console.log(`${a.title} coming soon`)
   }
 
   return (
@@ -83,7 +84,6 @@ export default function ActionGrid() {
                   <Icon className="h-4 w-4" />
                 </div>
               </div>
-
               <div className="dash-action-title">{a.title}</div>
               <div className="dash-action-subtitle">{a.subtitle}</div>
             </button>
