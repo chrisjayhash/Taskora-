@@ -19,6 +19,7 @@ import { getTaskById, submitTaskProof, type TaskDto } from '../../api/tasks'
 import { ApiError } from '../../api/http'
 import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
 import { timeAgo, formatDateShort } from '../../lib/task-visuals'
+import { formatNairaFromKobo } from '../../lib/money'
 import { isAuthFailure, isSessionExpired } from '../../lib/api-errors'
 import { openExternalLink } from '../../lib/links'
 import { spawnRipple } from '../../lib/ripple'
@@ -171,8 +172,8 @@ export default function TaskDetailPage() {
     }
   }
 
-  // Real values derived from the actual task where possible.
-  const earnedNaira = task ? Number(task.worker_earn_kobo) / 100 : 0
+  // task.worker_earn_kobo is in KOBO - use formatNairaFromKobo for correct display
+  const earnedDisplay = task ? formatNairaFromKobo(task.worker_earn_kobo) : '₦0'
   const filled = task ? task.completed_count : 0
   const percent = task && task.quantity > 0 ? Math.round((filled / task.quantity) * 100) : 0
   const jobIdShort = task ? task.id.slice(0, 8).toUpperCase() : ''
@@ -258,7 +259,7 @@ export default function TaskDetailPage() {
 
                 <div className="tdm-hero-stats">
                   <div>
-                    <strong>₦{earnedNaira} NGN</strong>
+                    <strong>{earnedDisplay}</strong>
                     <span>You Earn</span>
                   </div>
                   <div>
@@ -407,7 +408,7 @@ export default function TaskDetailPage() {
 
                 <div className="tdm-details-grid">
                   <div><span>Job ID</span><strong>{jobIdShort}</strong></div>
-                  <div><span>You Earn</span><strong>₦{earnedNaira} NGN</strong></div>
+                  <div><span>You Earn</span><strong>{earnedDisplay}</strong></div>
                   <div><span>Posted</span><strong>{postedLabel}</strong></div>
                   <div><span>Expires</span><strong>{expiresLabel}</strong></div>
                   <div><span>Proof Required</span><strong>{needsProof ? 'Yes' : 'No'}</strong></div>

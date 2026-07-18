@@ -15,7 +15,7 @@ import { initializeDeposit } from '../../api/payments'
 import { getWallet } from '../../api/wallet'
 import { ApiError } from '../../api/http'
 import { getStoredUser, clearAuthSession } from '../../lib/auth-storage'
-import { formatNaira } from '../../lib/money'
+import { formatNairaFromKobo } from '../../lib/money'
 import { setWalletCache } from '../../lib/dashboard-cache'
 import DashboardHeader from '../Dashboard/components/DashboardHeader'
 import BottomNav from '../Dashboard/components/BottomNav'
@@ -44,7 +44,8 @@ export default function DepositPage() {
       try {
         const res = await getWallet()
         if (!alive) return
-        const formatted = formatNaira(res.wallet.balance)
+        // wallet.balance is returned in KOBO by the backend
+        const formatted = formatNairaFromKobo(res.wallet.balance)
         setBalance(formatted)
         setWalletCache({
           balanceText: formatted,
@@ -64,26 +65,26 @@ export default function DepositPage() {
     return () => { alive = false }
   }, [navigate])
 
+  // amountNum is always in NAIRA (from user input field)
   const amountNum = useMemo(() => {
     const n = Number(amount)
-    return Number.isFinite(n) ? n : 0
+    return Number.isFinite(n) && n > 0 ? n : 0
   }, [amount])
 
   const feeNum = useMemo(() => {
-    if (!amount || amountNum <= 0) return 0
-    return FEE_NAIRA
-  }, [amount, amountNum])
+    return amountNum > 0 ? FEE_NAIRA : 0
+  }, [amountNum])
 
+  // totalNum = what user pays = deposit + fee, in NAIRA
   const totalNum = useMemo(() => {
-    if (!amount || amountNum <= 0) return 0
-    return amountNum + feeNum
-  }, [amount, amountNum, feeNum])
+    return amountNum > 0 ? amountNum + feeNum : 0
+  }, [amountNum, feeNum])
 
+  // Local display formatter for NAIRA values (user input, not kobo from backend)
   function formatDisplay(n: number) {
     if (n === 0) return '₦0.00'
-    const hasDecimals = Math.round(n * 100) % 100 !== 0
     return '₦' + new Intl.NumberFormat('en-NG', {
-      minimumFractionDigits: hasDecimals ? 2 : 2,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(n)
   }
@@ -113,6 +114,7 @@ export default function DepositPage() {
 
     setSubmitting(true)
     try {
+      // totalNum is in NAIRA (e.g. 550 for ₦500 deposit + ₦50 fee)
       const res = await initializeDeposit(totalNum)
       const w = window.open(res.authorizationUrl, '_blank', 'noopener,noreferrer')
       if (!w) window.location.href = res.authorizationUrl

@@ -8,7 +8,7 @@ import {
 import { announcements } from '../../lib/dashboard-mock'
 import { getMe } from '../../api/me'
 import { getWallet } from '../../api/wallet'
-import { formatNaira } from '../../lib/money'
+import { formatNairaFromKobo } from '../../lib/money'
 import { getWalletCache, setWalletCache } from '../../lib/dashboard-cache'
 
 import DashboardHeader from './components/DashboardHeader'
@@ -83,7 +83,8 @@ export default function DashboardPage() {
           const walletRes = await getWallet()
           if (!alive) return
 
-          const formatted = formatNaira(walletRes.wallet.balance)
+          // wallet.balance is returned in KOBO by the backend
+          const formatted = formatNairaFromKobo(walletRes.wallet.balance)
           setBalanceText(formatted)
           setWalletCache({
             balanceText: formatted,
@@ -109,7 +110,8 @@ export default function DashboardPage() {
     setRefreshingBalance(true)
     try {
       const walletRes = await getWallet()
-      const formatted = formatNaira(walletRes.wallet.balance)
+      // wallet.balance is returned in KOBO by the backend
+      const formatted = formatNairaFromKobo(walletRes.wallet.balance)
       setBalanceText(formatted)
       setWalletCache({
         balanceText: formatted,
