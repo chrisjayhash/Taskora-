@@ -17,22 +17,41 @@ export interface TaskDto {
   category_name: string
   subcategory_name: string
   advertiser_username: string
+  status?: string
 }
 
 export interface TasksResponse {
   tasks: TaskDto[]
 }
 
-export interface TaskCategoryDto {
-  category_id: string
-  category_name: string
-  subcategory_id: string
-  subcategory_name: string
-  base_rate_kobo: string
+export interface TaskCategoriesResponse {
+  categories: any[]
 }
 
-export interface TaskCategoriesResponse {
-  categories: TaskCategoryDto[]
+export interface TaskDetailResponse {
+  task: TaskDto
+}
+
+export interface SubmitTaskProofResponse {
+  submission: any
+}
+
+export interface SubmissionHistoryItem {
+  id: string
+  task_id: string
+  status: 'pending' | 'approved' | 'rejected'
+  proof_value: string
+  rejection_reason: string | null
+  submitted_at: string
+  reviewed_at: string | null
+  job_description: string
+  worker_earn_kobo: string
+  category_name: string
+  subcategory_name: string
+}
+
+export interface SubmissionsResponse {
+  submissions: SubmissionHistoryItem[]
 }
 
 function isExpiredTokenError(err: unknown): boolean {
@@ -66,10 +85,58 @@ async function authedGet<T>(path: string): Promise<T> {
   }
 }
 
+async function authedPost<T>(path: string, body: unknown): Promise<T> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    return await apiFetch<T>(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${access}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    })
+  } catch (err) {
+    if (!isExpiredTokenError(err)) throw err
+
+    const refresh = getRefreshToken()
+    if (!refresh) throw err
+
+    const refreshed = await refreshAccessToken(refresh)
+    setAccessToken(refreshed.accessToken)
+
+    return await apiFetch<T>(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${refreshed.accessToken}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    })
+  }
+}
+
+/* ✅ KEEP ALL ORIGINAL EXPORTS */
+
 export function getTasks(): Promise<TasksResponse> {
   return authedGet<TasksResponse>('/tasks')
 }
 
 export function getTaskCategories(): Promise<TaskCategoriesResponse> {
   return authedGet<TaskCategoriesResponse>('/tasks/categories')
+}
+
+export function getTaskById(id: string): Promise<TaskDetailResponse> {
+  return authedGet<TaskDetailResponse>(`/tasks/${id}`)
+}
+
+export function submitTaskProof(id: string, proofValue?: string): Promise<SubmitTaskProofResponse> {
+  const body = proofValue !== undefined ? { proofValue } : {}
+  return authedPost<SubmitTaskProofResponse>(`/tasks/${id}/submit`, body)
+}
+
+export function getMySubmissions(): Promise<SubmissionsResponse> {
+  return authedGet<SubmissionsResponse>('/submissions/mine')
 }

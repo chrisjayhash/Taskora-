@@ -89,3 +89,26 @@
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ============================================
+   TASK LIST SKELETON — LIGHT MODE
+   ============================================ */
+
+html:not([data-theme='dark']) .task-skel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .task-skel-banner,
+html:not([data-theme='dark']) .task-skel-bar,
+html:not([data-theme='dark']) .task-skel-pill,
+html:not([data-theme='dark']) .task-skel-btn {
+  background-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.11) 50%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+  background-size: 200% 100%;
+}
+

@@ -1773,9 +1773,10 @@ export default function App() {
 
 ### FILE PATH: src/api/auth.ts
 ```ts
-const BASE = import.meta.env.VITE_API_BASE_URL as string
+import { apiFetch, ApiError } from './http'
 
-// ── Shared shapes ────────────────────────────────────────────────────────────
+// Re-export so existing imports keep working
+export { ApiError }
 
 export interface AuthUser {
   id: string
@@ -1784,20 +1785,6 @@ export interface AuthUser {
   username: string
   email: string
   role: string
-}
-
-export interface ApiErrorBody {
-  error: string
-}
-
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly body: ApiErrorBody,
-  ) {
-    super(body.error ?? 'An unexpected error occurred')
-    this.name = 'ApiError'
-  }
 }
 
 // ── Sign up ──────────────────────────────────────────────────────────────────
@@ -1841,38 +1828,84 @@ export interface LoginResponse {
   user: AuthUser
 }
 
-// ── Internal fetch helper ────────────────────────────────────────────────────
+// ── Refresh ─────────────────────────────────────────────────────────────────
 
-async function apiFetch<T>(path: string, options: RequestInit): Promise<T> {
+export interface RefreshPayload {
+  refreshToken: string
+}
+
+export interface RefreshResponse {
+  accessToken: string
+}
+
+// ── Endpoints ───────────────────────────────────────────────────────────────
+
+export async function signUp(payload: SignUpPayload): Promise<SignUpResponse> {
+  return apiFetch<SignUpResponse>('/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function login(payload: LoginPayload): Promise<LoginResponse> {
+  return apiFetch<LoginResponse>('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<RefreshResponse> {
+  return apiFetch<RefreshResponse>('/auth/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken } satisfies RefreshPayload),
+  })
+}
+```
+
+---
+
+### FILE PATH: src/api/http.ts
+```ts
+const BASE = import.meta.env.VITE_API_BASE_URL as string
+
+export interface ApiErrorBody {
+  error: string
+}
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly body: ApiErrorBody,
+  ) {
+    super(body?.error ?? 'An unexpected error occurred')
+    this.name = 'ApiError'
+  }
+}
+
+export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res: Response
   try {
     res = await fetch(`${BASE}${path}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
         ...(options.headers ?? {}),
       },
     })
   } catch (networkErr) {
     console.error(`[API] Network/fetch error on ${path}:`, networkErr)
-    throw new ApiError(0, {
-      error: `Cannot reach the server. Make sure the backend is running on ${BASE}`,
-    })
-  }
-
-  if (import.meta.env.DEV) {
-    console.log(`[API] ${res.status} ${res.url}`)
+    throw new ApiError(0, { error: `Cannot reach the server. Make sure the backend is running on ${BASE}` })
   }
 
   const text = await res.text()
-
-  let json: unknown
+  let json: unknown = {}
   try {
     json = text ? JSON.parse(text) : {}
   } catch {
-    throw new ApiError(res.status, {
-      error: `Server returned an unexpected response (${res.status}).`,
-    })
+    // non-json response
+    throw new ApiError(res.status, { error: `Server returned an unexpected response (${res.status}).` })
   }
 
   if (!res.ok) {
@@ -1881,21 +1914,324 @@ async function apiFetch<T>(path: string, options: RequestInit): Promise<T> {
 
   return json as T
 }
+```
 
-// ── Endpoints ────────────────────────────────────────────────────────────────
+---
 
-export async function signUp(payload: SignUpPayload): Promise<SignUpResponse> {
-  return apiFetch<SignUpResponse>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
+### FILE PATH: src/api/me.ts
+```ts
+import { apiFetch, ApiError } from './http'
+import { refreshAccessToken } from './auth'
+import {
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setStoredUser,
+} from '../lib/auth-storage'
+
+export interface MeWallet {
+  id: string
+  balanceKobo: string
+  currency: string
 }
 
-export async function login(payload: LoginPayload): Promise<LoginResponse> {
-  return apiFetch<LoginResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
+export interface MeUser {
+  id: string
+  firstName: string
+  lastName: string
+  username: string
+  email: string
+  phoneNumber: string
+  role: string
+  referralCode: string
+  referredBy: string | null
+  isVerified: boolean
+  createdAt: string
+  updatedAt: string
+  wallet: MeWallet
+  referralCount: number
+}
+
+export interface MeResponse {
+  user: MeUser
+}
+
+function isExpiredTokenError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = err.body?.error ?? ''
+  return msg.toLowerCase().includes('invalid or expired access token') || err.status === 401
+}
+
+export async function getMe(): Promise<MeResponse> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    const res = await apiFetch<MeResponse>('/me', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${access}`,
+      },
+    })
+
+    // Keep local storage user in sync with backend truth
+    setStoredUser({
+      id: res.user.id,
+      firstName: res.user.firstName,
+      lastName: res.user.lastName,
+      username: res.user.username,
+      email: res.user.email,
+      role: res.user.role,
+      phoneNumber: res.user.phoneNumber,
+      referralCode: res.user.referralCode,
+      isVerified: res.user.isVerified,
+      referralCount: res.user.referralCount,
+      wallet: res.user.wallet,
+    })
+
+    return res
+  } catch (err) {
+    // If access token expired, refresh and retry once
+    if (isExpiredTokenError(err)) {
+      const refresh = getRefreshToken()
+      if (!refresh) throw err
+
+      const refreshed = await refreshAccessToken(refresh)
+      setAccessToken(refreshed.accessToken)
+
+      const res = await apiFetch<MeResponse>('/me', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${refreshed.accessToken}`,
+        },
+      })
+
+      setStoredUser({
+        id: res.user.id,
+        firstName: res.user.firstName,
+        lastName: res.user.lastName,
+        username: res.user.username,
+        email: res.user.email,
+        role: res.user.role,
+        phoneNumber: res.user.phoneNumber,
+        referralCode: res.user.referralCode,
+        isVerified: res.user.isVerified,
+        referralCount: res.user.referralCount,
+        wallet: res.user.wallet,
+      })
+
+      return res
+    }
+
+    throw err
+  }
+}
+```
+
+---
+
+### FILE PATH: src/api/payments.ts
+```ts
+import { apiFetch, ApiError } from './http'
+import { refreshAccessToken } from './auth'
+import { getAccessToken, getRefreshToken, setAccessToken } from '../lib/auth-storage'
+
+export interface InitializePaymentResponse {
+  authorizationUrl: string
+  reference: string
+}
+
+function isExpiredTokenError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = err.body?.error ?? ''
+  return msg.toLowerCase().includes('invalid or expired access token') || err.status === 401
+}
+
+/**
+ * Initialize a deposit checkout.
+ *
+ * IMPORTANT:
+ * Your current backend is behaving like it expects `amountNaira` in NAIRA units
+ * (e.g. 250), and then converts to kobo internally for Paystack.
+ *
+ * If you send kobo (25000), the backend converts again and Paystack shows ₦25,000.
+ */
+export async function initializeDeposit(amountNaira: number): Promise<InitializePaymentResponse> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  const payload = { amountNaira: Math.round(amountNaira) }
+
+  try {
+    return await apiFetch<InitializePaymentResponse>('/payments/initialize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${access}`,
+      },
+      body: JSON.stringify(payload),
+    })
+  } catch (err) {
+    if (isExpiredTokenError(err)) {
+      const refresh = getRefreshToken()
+      if (!refresh) throw err
+
+      const refreshed = await refreshAccessToken(refresh)
+      setAccessToken(refreshed.accessToken)
+
+      return await apiFetch<InitializePaymentResponse>('/payments/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${refreshed.accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      })
+    }
+
+    throw err
+  }
+}
+```
+
+---
+
+### FILE PATH: src/api/tasks.ts
+```ts
+import { apiFetch, ApiError } from './http'
+import { refreshAccessToken } from './auth'
+import { getAccessToken, getRefreshToken, setAccessToken } from '../lib/auth-storage'
+
+export interface TaskDto {
+  id: string
+  job_link: string
+  job_description: string
+  proof_required: boolean
+  proof_type: string
+  quantity: number
+  worker_earn_kobo: string
+  completed_count: number
+  expires_at: string
+  created_at: string
+  spots_remaining: number
+  category_name: string
+  subcategory_name: string
+  advertiser_username: string
+  status?: string
+}
+
+export interface SubmissionHistoryItem {
+  id: string
+  task_id: string
+  status: 'pending' | 'approved' | 'rejected'
+  proof_value: string
+  rejection_reason: string | null
+  submitted_at: string
+  reviewed_at: string | null
+  job_description: string
+  worker_earn_kobo: string
+  category_name: string
+  subcategory_name: string
+}
+
+export interface SubmissionsResponse {
+  submissions: SubmissionHistoryItem[]
+}
+
+function isExpiredTokenError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = err.body?.error ?? ''
+  return msg.toLowerCase().includes('invalid or expired access token') || err.status === 401
+}
+
+async function authedGet<T>(path: string): Promise<T> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    return await apiFetch<T>(path, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${access}` },
+    })
+  } catch (err) {
+    if (!isExpiredTokenError(err)) throw err
+
+    const refresh = getRefreshToken()
+    if (!refresh) throw err
+
+    const refreshed = await refreshAccessToken(refresh)
+    setAccessToken(refreshed.accessToken)
+
+    return await apiFetch<T>(path, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+    })
+  }
+}
+
+export function getMySubmissions(): Promise<SubmissionsResponse> {
+  return authedGet<SubmissionsResponse>('/submissions/mine')
+}
+```
+
+---
+
+### FILE PATH: src/api/wallet.ts
+```ts
+import { apiFetch, ApiError } from './http'
+import { refreshAccessToken } from './auth'
+import {
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+} from '../lib/auth-storage'
+
+export interface WalletDto {
+  id: string
+  balance: string
+  currency: string
+  updated_at: string
+}
+
+export interface WalletResponse {
+  wallet: WalletDto
+}
+
+function isExpiredTokenError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = err.body?.error ?? ''
+  return msg.toLowerCase().includes('invalid or expired access token') || err.status === 401
+}
+
+export async function getWallet(): Promise<WalletResponse> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    return await apiFetch<WalletResponse>('/wallet', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${access}`,
+      },
+    })
+  } catch (err) {
+    if (isExpiredTokenError(err)) {
+      const refresh = getRefreshToken()
+      if (!refresh) throw err
+
+      const refreshed = await refreshAccessToken(refresh)
+      setAccessToken(refreshed.accessToken)
+
+      return await apiFetch<WalletResponse>('/wallet', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${refreshed.accessToken}`,
+        },
+      })
+    }
+
+    throw err
+  }
 }
 ```
 
@@ -1932,11 +2268,59 @@ export function useIsMobile() {
 
 ---
 
+### FILE PATH: src/lib/api-errors.ts
+```ts
+import { ApiError } from '../api/http'
+
+/**
+ * Broad check used for page-level data loading (GET requests).
+ * Treats 401 and 403 as "you shouldn't be here" -> force logout.
+ */
+export function isAuthFailure(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = (err.body?.error ?? err.message ?? '').toLowerCase()
+  return (
+    err.status === 401 ||
+    err.status === 403 ||
+    msg.includes('not authenticated') ||
+    msg.includes('invalid or expired access token') ||
+    msg.includes('invalid refresh') ||
+    msg.includes('expired refresh')
+  )
+}
+
+/**
+ * Narrow check used for actions where a 403 can mean a legitimate
+ * business rule violation (e.g. "you can't submit to your own task")
+ * rather than an expired/invalid session. Only forces logout on a
+ * real token problem.
+ */
+export function isSessionExpired(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  if (err.status === 401) return true
+  const msg = (err.body?.error ?? err.message ?? '').toLowerCase()
+  return (
+    msg.includes('not authenticated') ||
+    msg.includes('invalid or expired access token') ||
+    msg.includes('invalid refresh') ||
+    msg.includes('expired refresh')
+  )
+}
+```
+
+---
+
 ### FILE PATH: src/lib/auth-storage.ts
 ```ts
 const ACCESS_TOKEN_KEY = 'taskora_access_token'
 const REFRESH_TOKEN_KEY = 'taskora_refresh_token'
 const USER_KEY = 'taskora_user'
+
+export interface StoredWallet {
+  id: string
+  balanceKobo: string
+  currency: string
+}
 
 export interface StoredUser {
   id: string
@@ -1945,6 +2329,13 @@ export interface StoredUser {
   username: string
   email: string
   role: string
+
+  // Optional fields populated by /me
+  phoneNumber?: string
+  referralCode?: string
+  isVerified?: boolean
+  referralCount?: number
+  wallet?: StoredWallet
 }
 
 // ── Write ────────────────────────────────────────────────────────────────────
@@ -1956,6 +2347,18 @@ export function setAuthSession(
 ) {
   localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function setAccessToken(accessToken: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+}
+
+export function setRefreshToken(refreshToken: string) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+}
+
+export function setStoredUser(user: StoredUser) {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
@@ -1985,19 +2388,206 @@ export function getStoredUser(): StoredUser | null {
   }
 }
 
-// NOTE: this only checks for a token's *presence*, not its expiry.
-// The access token is short-lived (~15 min). Once a refresh-token flow
-// endpoint exists (e.g. POST /auth/refresh), wire it up here so expired
-// access tokens are silently renewed using the refresh token.
+// NOTE: this checks for token presence (not expiry). Expiry is handled
+// by API calls (refresh on 401/expired message).
 export function isAuthenticated(): boolean {
   return !!getAccessToken()
 }
 
-// Convenience helper for attaching the bearer token to future
-// authenticated API requests (dashboard data, wallet, tasks, etc.)
 export function getAuthHeader(): Record<string, string> {
   const token = getAccessToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
+}
+```
+
+---
+
+### FILE PATH: src/lib/dashboard-cache.ts
+```ts
+const WALLET_CACHE_KEY = 'taskora_wallet_cache_v1'
+
+export interface WalletCache {
+  balanceText: string
+  currency: string
+  updatedAt: string
+  cachedAt: string
+}
+
+export function getWalletCache(): WalletCache | null {
+  const raw = localStorage.getItem(WALLET_CACHE_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as WalletCache
+  } catch {
+    return null
+  }
+}
+
+export function setWalletCache(next: Omit<WalletCache, 'cachedAt'>) {
+  const payload: WalletCache = {
+    ...next,
+    cachedAt: new Date().toISOString(),
+  }
+  localStorage.setItem(WALLET_CACHE_KEY, JSON.stringify(payload))
+}
+
+export function clearWalletCache() {
+  localStorage.removeItem(WALLET_CACHE_KEY)
+}
+```
+
+---
+
+### FILE PATH: src/lib/dashboard-mock.ts
+```ts
+import {
+  Instagram,
+  Music2,
+  Facebook,
+  Youtube,
+  MessageCircle,
+  Send,
+  Linkedin,
+  Globe,
+  Smartphone,
+  Wallet,
+  CheckCircle2,
+  ListChecks,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
+
+// ── Stats overview ───────────────────────────────────────────────────────────
+
+export interface StatCard {
+  id: string
+  label: string
+  value: string
+  helper: string
+  icon: LucideIcon
+  accent: 'blue' | 'green' | 'purple' | 'pink'
+}
+
+export const statCards: StatCard[] = [
+  {
+    id: 'balance',
+    label: 'Wallet balance',
+    value: '₦28,450',
+    helper: '+₦4,200 this week',
+    icon: Wallet,
+    accent: 'blue',
+  },
+  {
+    id: 'completed',
+    label: 'Tasks completed',
+    value: '184',
+    helper: '12 today',
+    icon: CheckCircle2,
+    accent: 'green',
+  },
+  {
+    id: 'active',
+    label: 'Active tasks',
+    value: '6',
+    helper: '2 awaiting review',
+    icon: ListChecks,
+    accent: 'purple',
+  },
+  {
+    id: 'referrals',
+    label: 'Referrals',
+    value: '9',
+    helper: '₦900 earned',
+    icon: Users,
+    accent: 'pink',
+  },
+]
+
+// ── Task categories (quick browse) ──────────────────────────────────────────
+
+export interface TaskCategoryQuick {
+  name: string
+  icon: LucideIcon
+  rate: string
+}
+
+export const quickCategories: TaskCategoryQuick[] = [
+  { name: 'Instagram', icon: Instagram, rate: '₦8 – ₦25' },
+  { name: 'TikTok', icon: Music2, rate: '₦10 – ₦30' },
+  { name: 'Facebook', icon: Facebook, rate: '₦8 – ₦20' },
+  { name: 'YouTube', icon: Youtube, rate: '₦15 – ₦50' },
+  { name: 'WhatsApp', icon: MessageCircle, rate: '₦5 – ₦15' },
+  { name: 'Telegram', icon: Send, rate: '₦8 – ₦20' },
+  { name: 'LinkedIn', icon: Linkedin, rate: '₦12 – ₦30' },
+  { name: 'Website', icon: Globe, rate: '₦5 – ₦12' },
+  { name: 'App Install', icon: Smartphone, rate: '₦40 – ₦150' },
+]
+
+// ── Recent activity ──────────────────────────────────────────────────────────
+
+export interface ActivityItem {
+  id: string
+  title: string
+  meta: string
+  amount: string
+  positive: boolean
+}
+
+export const recentActivity: ActivityItem[] = [
+  {
+    id: '1',
+    title: 'Instagram follow — @brandhq',
+    meta: 'Approved · 2m ago',
+    amount: '+₦25',
+    positive: true,
+  },
+  {
+    id: '2',
+    title: 'TikTok view (60s)',
+    meta: 'Approved · 18m ago',
+    amount: '+₦18',
+    positive: true,
+  },
+  {
+    id: '3',
+    title: 'App download — GTBank',
+    meta: 'Pending review · 1h ago',
+    amount: '+₦150',
+    positive: true,
+  },
+  {
+    id: '4',
+    title: 'Withdrawal to GTBank ****2291',
+    meta: 'Completed · Yesterday',
+    amount: '-₦5,000',
+    positive: false,
+  },
+  {
+    id: '5',
+    title: 'Website visit — SME Naija',
+    meta: 'Approved · Yesterday',
+    amount: '+₦8',
+    positive: true,
+  },
+]
+
+// ── Announcement marquee ─────────────────────────────────────────────────────
+
+export const announcements: string[] = [
+  'Post real tasks, pay fair rates, get real results.',
+  'Withdrawals now settle in minutes via Paystack.',
+  'Refer a friend and earn ₦100 instantly.',
+  'New: LinkedIn engagement tasks now live.',
+]
+```
+
+---
+
+### FILE PATH: src/lib/links.ts
+```ts
+export function openExternalLink(url: string) {
+  const w = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!w) window.location.href = url
 }
 ```
 
@@ -2066,6 +2656,220 @@ export function reportLovableError(error: unknown, context: Record<string, unkno
 
 ---
 
+### FILE PATH: src/lib/money.ts
+```ts
+export function formatNairaFromKobo(balanceKobo: string | number): string {
+  const koboNum =
+    typeof balanceKobo === 'string' ? Number(balanceKobo) : balanceKobo
+
+  if (!Number.isFinite(koboNum)) return '₦0'
+
+  const naira = koboNum / 100
+  const hasDecimals = Math.round(naira * 100) % 100 !== 0
+
+  const formatted = new Intl.NumberFormat('en-NG', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(naira)
+
+  return `₦${formatted}`
+}
+
+/**
+ * Formats a NAIRA amount already in naira units (as returned by /wallet.balance).
+ * Examples:
+ *  "0" -> ₦0
+ *  "2500" -> ₦2,500
+ *  "2500.5" -> ₦2,500.50
+ */
+export function formatNaira(amountNaira: string | number): string {
+  const num = typeof amountNaira === 'string' ? Number(amountNaira) : amountNaira
+  if (!Number.isFinite(num)) return '₦0'
+
+  const hasDecimals = Math.round(num * 100) % 100 !== 0
+  const formatted = new Intl.NumberFormat('en-NG', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(num)
+
+  return `₦${formatted}`
+}
+```
+
+---
+
+### FILE PATH: src/lib/ripple.ts
+```ts
+import type { MouseEvent } from 'react'
+
+export function spawnRipple(
+  e: MouseEvent<HTMLButtonElement>,
+  className = 'task-btn-ripple',
+) {
+  const btn = e.currentTarget
+  const rect = btn.getBoundingClientRect()
+  const size = Math.max(rect.width, rect.height)
+  const x = e.clientX - rect.left - size / 2
+  const y = e.clientY - rect.top - size / 2
+
+  const span = document.createElement('span')
+  span.className = className
+  span.style.width = `${size}px`
+  span.style.height = `${size}px`
+  span.style.left = `${x}px`
+  span.style.top = `${y}px`
+
+  btn.appendChild(span)
+  span.addEventListener('animationend', () => span.remove())
+}
+```
+
+---
+
+### FILE PATH: src/lib/supabase.ts
+```ts
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    '[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. ' +
+      'Screenshot uploads will fail until these are set in .env',
+  )
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+export const PROOF_UPLOADS_BUCKET =
+  (import.meta.env.VITE_SUPABASE_PROOF_BUCKET as string) || 'Taskora_proff_uploads'
+```
+
+---
+
+### FILE PATH: src/lib/task-visuals.ts
+```ts
+import {
+  Instagram,
+  Facebook,
+  Music2,
+  Youtube,
+  Send,
+  MessageCircle,
+  Linkedin,
+  Globe,
+  Smartphone,
+  Layers,
+  type LucideIcon,
+} from 'lucide-react'
+
+export function getPlatformIcon(categoryName: string): LucideIcon {
+  switch (categoryName) {
+    case 'INSTAGRAM':
+      return Instagram
+    case 'FACEBOOK':
+      return Facebook
+    case 'TIKTOK':
+      return Music2
+    case 'YOUTUBE':
+      return Youtube
+    case 'TELEGRAM':
+      return Send
+    case 'WHATSAPP':
+      return MessageCircle
+    case 'LINKEDIN':
+      return Linkedin
+    case 'WEBSITE':
+      return Globe
+    case 'APP_DOWNLOAD':
+      return Smartphone
+    default:
+      return Layers
+  }
+}
+
+export function getBannerUrl(categoryName: string): string {
+  const map: Record<string, string> = {
+    INSTAGRAM:
+      'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?auto=format&fit=crop&w=1200&q=70',
+    FACEBOOK:
+      'https://images.unsplash.com/photo-1557683304-673a23048d34?auto=format&fit=crop&w=1200&q=70',
+    TIKTOK:
+      'https://images.unsplash.com/photo-1526498460520-4c246339dccb?auto=format&fit=crop&w=1200&q=70',
+    YOUTUBE:
+      'https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?auto=format&fit=crop&w=1200&q=70',
+    WHATSAPP:
+      'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?auto=format&fit=crop&w=1200&q=70',
+    TELEGRAM:
+      'https://images.unsplash.com/photo-1526948128573-703ee1aeb6fa?auto=format&fit=crop&w=1200&q=70',
+    LINKEDIN:
+      'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=70',
+    WEBSITE:
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=70',
+    APP_DOWNLOAD:
+      'https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=1200&q=70',
+  }
+
+  return (
+    map[categoryName] ??
+    'https://images.unsplash.com/photo-1526481280695-3c687fd5432c?auto=format&fit=crop&w=1200&q=70'
+  )
+}
+
+export function formatDateShort(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })
+}
+```
+
+---
+
+### FILE PATH: src/lib/upload-proof.ts
+```ts
+import { supabase, PROOF_UPLOADS_BUCKET } from './supabase'
+
+function extensionFromFile(file: File): string {
+  const fromName = file.name.split('.').pop()
+  if (fromName && fromName.length <= 5) return fromName.toLowerCase()
+  const fromType = file.type.split('/').pop()
+  return fromType ? fromType.toLowerCase() : 'jpg'
+}
+
+export async function uploadProofScreenshot(
+  file: File,
+  taskId: string,
+  userId?: string,
+): Promise<string> {
+  const ext = extensionFromFile(file)
+  const path = `${userId ?? 'anon'}/${taskId}-${Date.now()}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(PROOF_UPLOADS_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || 'image/jpeg',
+    })
+
+  if (uploadError) {
+    console.error('[Supabase] upload error:', uploadError)
+    throw new Error(uploadError.message || 'Failed to upload screenshot.')
+  }
+
+  const { data } = supabase.storage.from(PROOF_UPLOADS_BUCKET).getPublicUrl(path)
+
+  if (!data?.publicUrl) {
+    throw new Error('Failed to get the uploaded screenshot URL.')
+  }
+
+  return data.publicUrl
+}
+```
+
+---
+
 ### FILE PATH: src/lib/utils.ts
 ```ts
 import { clsx, type ClassValue } from "clsx";
@@ -2096,32 +2900,1519 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 ### FILE PATH: src/pages/Dashboard/DashboardPage.tsx
 ```tsx
-import { useNavigate } from "react-router-dom";
-import { getStoredUser, clearAuthSession } from "../../lib/auth-storage";
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  clearAuthSession,
+  getStoredUser,
+  type StoredUser,
+} from '../../lib/auth-storage'
+import { announcements } from '../../lib/dashboard-mock'
+import { getMe } from '../../api/me'
+import { getWallet } from '../../api/wallet'
+import { formatNaira } from '../../lib/money'
+import { getWalletCache, setWalletCache } from '../../lib/dashboard-cache'
+
+import DashboardHeader from './components/DashboardHeader'
+import DashboardHero from './components/DashboardHero'
+import ProfileBar from './components/ProfileBar'
+import AnnouncementBanner from './components/AnnouncementBanner'
+import WelcomeSection from './components/WelcomeSection'
+import RoleCTA from './components/RoleCTA'
+import QuickActions from './components/QuickActions'
+import ActionGrid from './components/ActionGrid'
+import StatsGrid from './components/StatsGrid'
+import TaskCategoriesStrip from './components/TaskCategoriesStrip'
+import RecentActivity from './components/RecentActivity'
+import BottomNav from './components/BottomNav'
+
+import '../../App.css'
+import '../../styles.css'
+import './dashboard-actions.css'
+import './profilebar-overrides.css'
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
-  const user = getStoredUser();
+  const navigate = useNavigate()
+
+  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser())
+  const [loading, setLoading] = useState(false)
+  const [refreshingBalance, setRefreshingBalance] = useState(false)
+
+  const cachedWallet = useMemo(() => getWalletCache(), [])
+  const [balanceText, setBalanceText] = useState<string>(() => cachedWallet?.balanceText ?? '₦0')
+
+  const notificationCount = 2
+
+  // Hard caching:
+  // - On mount: only fetch /me if we don't already have a stored user.
+  // - On mount: only fetch /wallet if we have no cached wallet.
+  useEffect(() => {
+    let alive = true
+
+    async function initialLoad() {
+      const hasUser = !!getStoredUser()
+      const hasWallet = !!getWalletCache()
+
+      if (hasUser && hasWallet) return
+
+      setLoading(true)
+      try {
+        if (!hasUser) {
+          const meRes = await getMe()
+          if (!alive) return
+
+          const u = meRes.user
+          const stored: StoredUser = {
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            username: u.username,
+            email: u.email,
+            role: u.role,
+            phoneNumber: u.phoneNumber,
+            referralCode: u.referralCode,
+            isVerified: u.isVerified,
+            referralCount: u.referralCount,
+            wallet: u.wallet,
+          }
+          setUser(stored)
+        } else {
+          // keep state in sync with localStorage
+          setUser(getStoredUser())
+        }
+
+        if (!hasWallet) {
+          const walletRes = await getWallet()
+          if (!alive) return
+
+          const formatted = formatNaira(walletRes.wallet.balance)
+          setBalanceText(formatted)
+          setWalletCache({
+            balanceText: formatted,
+            currency: walletRes.wallet.currency,
+            updatedAt: walletRes.wallet.updated_at,
+          })
+        }
+      } catch {
+        clearAuthSession()
+        navigate('/login', { replace: true })
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    initialLoad()
+    return () => {
+      alive = false
+    }
+  }, [navigate])
+
+  async function refreshWalletBalance() {
+    setRefreshingBalance(true)
+    try {
+      const walletRes = await getWallet()
+      const formatted = formatNaira(walletRes.wallet.balance)
+      setBalanceText(formatted)
+      setWalletCache({
+        balanceText: formatted,
+        currency: walletRes.wallet.currency,
+        updatedAt: walletRes.wallet.updated_at,
+      })
+    } catch {
+      clearAuthSession()
+      navigate('/login', { replace: true })
+    } finally {
+      setRefreshingBalance(false)
+    }
+  }
+
+  const displayBalance = useMemo(() => balanceText, [balanceText])
 
   function handleLogout() {
-    clearAuthSession();
-    navigate("/");
+    clearAuthSession()
+    navigate('/')
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <h1 className="text-2xl font-bold mb-2">User Dashboard</h1>
-      <p className="mb-1 text-muted-foreground">
-        Welcome back, {user ? `${user.firstName} (@${user.username})` : "friend"}!
-      </p>
-      <p className="mb-4 text-muted-foreground text-sm">
-        Role: {user?.role ?? "unknown"}
-      </p>
-      <button onClick={handleLogout} className="text-primary underline">
-        Logout
+    <div className="dash-page">
+      <DashboardHeader user={user} onLogout={handleLogout} />
+
+      <main className="dash-main">
+        <DashboardHero />
+
+        <div className="dash-content">
+          <ProfileBar
+            user={user}
+            balance={displayBalance}
+            notificationCount={notificationCount}
+            onRefreshBalance={refreshWalletBalance}
+            refreshingBalance={refreshingBalance}
+          />
+
+          <AnnouncementBanner items={announcements} />
+          <WelcomeSection user={user} />
+          <RoleCTA user={user} />
+
+          <QuickActions user={user} />
+          <ActionGrid />
+          <StatsGrid balance={displayBalance} />
+
+          <TaskCategoriesStrip />
+          <RecentActivity />
+        </div>
+      </main>
+
+      {/* Role-aware FAB menu */}
+      <BottomNav role={user?.role} />
+
+      {loading && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '4.25rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '0.35rem 0.7rem',
+            borderRadius: '999px',
+            fontSize: '0.7rem',
+            color: 'var(--muted-foreground)',
+            background: 'rgba(15, 27, 46, 0.65)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            backdropFilter: 'blur(14px)',
+            zIndex: 60,
+          }}
+        >
+          Loading…
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/ActionGrid.tsx
+```tsx
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  Smartphone,
+  ListChecks,
+  type LucideIcon,
+} from 'lucide-react'
+
+type Accent = 'blue' | 'green' | 'purple' | 'pink'
+
+type ActionItem = {
+  id: 'deposit' | 'withdraw' | 'airtime' | 'submissions'
+  title: string
+  subtitle: string
+  icon: LucideIcon
+  accent: Accent
+  href?: string
+}
+
+const actions: ActionItem[] = [
+  {
+    id: 'deposit',
+    title: 'Deposit',
+    subtitle: 'Top up your wallet',
+    icon: ArrowDownToLine,
+    accent: 'blue',
+    href: '/deposit',
+  },
+  {
+    id: 'withdraw',
+    title: 'Withdraw',
+    subtitle: 'Cash out to bank',
+    icon: ArrowUpToLine,
+    accent: 'green',
+  },
+  {
+    id: 'airtime',
+    title: 'Buy airtime',
+    subtitle: 'Airtime & data',
+    icon: Smartphone,
+    accent: 'purple',
+  },
+  {
+    id: 'submissions',
+    title: 'Submissions',
+    subtitle: 'View your history',
+    icon: ListChecks,
+    accent: 'pink',
+    href: '/submissions',
+  },
+]
+
+export default function ActionGrid() {
+  const navigate = useNavigate()
+
+  function handleClick(a: ActionItem) {
+    if (a.href) {
+      navigate(a.href)
+      return
+    }
+    alert(`${a.title} — coming soon`)
+  }
+
+  return (
+    <section className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Quick actions</h3>
+      </div>
+
+      <div className="dash-action-grid">
+        {actions.map((a) => {
+          const Icon = a.icon
+          return (
+            <button
+              key={a.id}
+              type="button"
+              className={`dash-action-card glass dash-action-${a.accent}`}
+              onClick={() => handleClick(a)}
+            >
+              <div className="dash-action-card-top">
+                <div className="dash-action-icon">
+                  <Icon className="h-4 w-4" />
+                </div>
+              </div>
+
+              <div className="dash-action-title">{a.title}</div>
+              <div className="dash-action-subtitle">{a.subtitle}</div>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/AnnouncementBanner.tsx
+```tsx
+import { ShieldCheck } from 'lucide-react'
+
+export default function AnnouncementBanner({ items }: { items: string[] }) {
+  const loop = [...items, ...items]
+  return (
+    <div className="dash-announce">
+      <div className="dash-announce-track animate-marquee">
+        {loop.map((text, i) => (
+          <div key={i} className="dash-announce-item">
+            <span>{text}</span>
+            <ShieldCheck className="h-3.5 w-3.5 dash-announce-icon" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/BottomNav.tsx
+```tsx
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  Home,
+  Store,
+  Plus,
+  Briefcase,
+  Menu as MenuIcon,
+  Send,
+  ClipboardList,
+} from 'lucide-react'
+
+const leftTabs = [
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'marketplace', label: 'Marketplace', icon: Store },
+]
+
+const rightTabs = [
+  { id: 'jobs', label: 'Jobs', icon: Briefcase },
+  { id: 'more', label: 'More', icon: MenuIcon },
+]
+
+export default function BottomNav({ role }: { role?: string | null }) {
+  const navigate = useNavigate()
+  const [active, setActive] = useState('home')
+  const [fabOpen, setFabOpen] = useState(false)
+  const fabRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setFabOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const isWorker = role === 'worker'
+  const isAdvertiser = role === 'advertiser'
+
+  // - worker: hide "Post a task"
+  // - advertiser: hide "Browse tasks"
+  const showPostTask = !isWorker
+  const showBrowseTasks = !isAdvertiser
+  const hasFabActions = showPostTask || showBrowseTasks
+
+  function navTo(tabId: string) {
+    setActive(tabId)
+    if (tabId === 'home') navigate('/dashboard')
+    if (tabId === 'jobs') navigate('/tasks')
+    // marketplace/more: placeholder for now
+  }
+
+  return (
+    <nav className="dash-bottom-nav">
+      <div className="dash-bottom-nav-inner glass-strong">
+        <div className="dash-nav-group dash-nav-group-left">
+          {leftTabs.map((t) => {
+            const Icon = t.icon
+            const isActive = active === t.id
+            return (
+              <button
+                type="button"
+                key={t.id}
+                className={`dash-nav-item ${isActive ? 'dash-nav-item-active' : ''}`}
+                onClick={() => navTo(t.id)}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{t.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="dash-nav-fab-slot" ref={fabRef}>
+          <AnimatePresence>
+            {fabOpen && hasFabActions && (
+              <motion.div
+                initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                transition={{ duration: 0.18 }}
+                className="dash-fab-menu glass-strong"
+              >
+                {showPostTask && (
+                  <button
+                    type="button"
+                    className="dash-fab-menu-item"
+                    onClick={() => {
+                      setFabOpen(false)
+                      alert('Post a task — coming soon')
+                    }}
+                  >
+                    <ClipboardList className="h-4 w-4" /> Post a task
+                  </button>
+                )}
+
+                {showBrowseTasks && (
+                  <button
+                    type="button"
+                    className="dash-fab-menu-item"
+                    onClick={() => {
+                      setFabOpen(false)
+                      navigate('/tasks')
+                    }}
+                  >
+                    <Send className="h-4 w-4" /> Browse tasks
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            type="button"
+            className="dash-nav-fab"
+            onClick={() => {
+              if (!hasFabActions) return
+              setFabOpen((v) => !v)
+            }}
+            aria-label="Quick actions"
+          >
+            <Plus
+              className="h-6 w-6"
+              style={{
+                transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          </button>
+        </div>
+
+        <div className="dash-nav-group dash-nav-group-right">
+          {rightTabs.map((t) => {
+            const Icon = t.icon
+            const isActive = active === t.id
+            return (
+              <button
+                type="button"
+                key={t.id}
+                className={`dash-nav-item ${isActive ? 'dash-nav-item-active' : ''}`}
+                onClick={() => navTo(t.id)}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{t.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </nav>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/DashboardHeader.tsx
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Menu,
+  X,
+  User as UserIcon,
+  Settings,
+  LifeBuoy,
+  LogOut,
+} from 'lucide-react'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function DashboardHeader({
+  user,
+  onLogout,
+}: {
+  user: StoredUser | null
+  onLogout: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  return (
+    <header className="dash-header">
+      <div className="dash-header-inner glass">
+        <Link to="/dashboard" className="dash-logo">
+          <img src="/icon.png" alt="Taskora" className="dash-logo-icon" />
+          <span className="dash-logo-text">Taskora</span>
+        </Link>
+
+        <div className="dash-header-menu" ref={ref}>
+          <button
+            type="button"
+            className="dash-menu-trigger"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Open menu"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="dash-menu-dropdown glass-strong"
+              >
+                <div className="dash-menu-user">
+                  <div className="dash-menu-avatar">
+                    {user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : 'TK'}
+                  </div>
+                  <div>
+                    <div className="dash-menu-name">
+                      {user ? `${user.firstName} ${user.lastName}` : 'Taskora User'}
+                    </div>
+                    <div className="dash-menu-username">@{user?.username ?? 'guest'}</div>
+                  </div>
+                </div>
+
+                <div className="dash-menu-sep" />
+
+                <button type="button" className="dash-menu-item">
+                  <UserIcon className="h-4 w-4" /> Profile
+                </button>
+                <button type="button" className="dash-menu-item">
+                  <Settings className="h-4 w-4" /> Settings
+                </button>
+                <button type="button" className="dash-menu-item">
+                  <LifeBuoy className="h-4 w-4" /> Support
+                </button>
+
+                <div className="dash-menu-sep" />
+
+                <button
+                  type="button"
+                  className="dash-menu-item dash-menu-item-danger"
+                  onClick={onLogout}
+                >
+                  <LogOut className="h-4 w-4" /> Logout
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </header>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/DashboardHero.tsx
+```tsx
+import { motion } from 'framer-motion'
+import { LayoutDashboard, ChevronRight } from 'lucide-react'
+
+export default function DashboardHero() {
+  return (
+    <section className="dash-hero">
+      <div className="dash-hero-orb-1" />
+      <div className="dash-hero-orb-2" />
+      <div className="dash-hero-orb-3" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="dash-hero-content"
+      >
+        <div className="dash-hero-icon glass">
+          <LayoutDashboard className="h-5 w-5" />
+        </div>
+        <h1 className="dash-hero-title">Dashboard</h1>
+        <div className="dash-hero-breadcrumb">
+          <span>Home</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="dash-hero-breadcrumb-active">Dashboard</span>
+        </div>
+      </motion.div>
+    </section>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/ProfileBar.tsx
+```tsx
+import { Bell, RefreshCw } from 'lucide-react'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+function shortenBalanceText(balance: string) {
+  // CSS also ellipsizes, but this ensures the "…" appears even if layout changes.
+  const max = 14
+  if (!balance) return '₦0'
+  if (balance.length <= max) return balance
+  return `${balance.slice(0, max - 1)}…`
+}
+
+export default function ProfileBar({
+  user,
+  balance,
+  notificationCount,
+  onRefreshBalance,
+  refreshingBalance,
+}: {
+  user: StoredUser | null
+  balance: string
+  notificationCount: number
+  onRefreshBalance?: () => void
+  refreshingBalance?: boolean
+}) {
+  const initials = user
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : 'TK'
+
+  return (
+    <div
+      className="dash-profile-bar glass-strong"
+      // Slimmer card
+      style={{ padding: '0.8rem 0.95rem' }}
+    >
+      <div className="dash-profile-left">
+        <div
+          className="dash-profile-avatar"
+          style={{ height: '2.5rem', width: '2.5rem' }}
+        >
+          {initials}
+        </div>
+
+        <div style={{ minWidth: 0 }}>
+          <div className="dash-profile-username">@{user?.username ?? 'guest'}</div>
+
+          {/* Balance line: Balance ... (tiny refresh) NGN */}
+          <div className="dash-balance-row">
+            <span
+              className="text-gradient dash-balance-text"
+              title={balance}
+              aria-label={`Wallet balance ${balance}`}
+            >
+              {shortenBalanceText(balance)}
+            </span>
+
+            {/* refresh icon should sit just before NGN */}
+            <button
+              type="button"
+              className="dash-balance-refresh"
+              onClick={onRefreshBalance}
+              disabled={!onRefreshBalance || !!refreshingBalance}
+              aria-label="Refresh wallet balance"
+              title="Refresh balance"
+            >
+              <RefreshCw
+                className={`dash-balance-refresh-icon ${
+                  refreshingBalance ? 'dash-balance-refresh-spin' : ''
+                }`}
+              />
+            </button>
+
+            <span className="dash-profile-currency">NGN</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Only keep notifications */}
+      <div className="dash-profile-actions">
+        <button type="button" className="dash-icon-btn" aria-label="Notifications">
+          <Bell className="h-4 w-4" />
+          {notificationCount > 0 && (
+            <span className="dash-icon-badge">{notificationCount}</span>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/QuickActions.tsx
+```tsx
+import { useState } from 'react'
+import { Send, MessageCircle, Gift, Copy, Check } from 'lucide-react'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function QuickActions({ user }: { user: StoredUser | null }) {
+  const [copied, setCopied] = useState(false)
+  const referralCode = user?.referralCode || user?.username?.toUpperCase() || 'TASKORA'
+
+  function copyCode() {
+    navigator.clipboard.writeText(referralCode).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
+
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Join the community</h3>
+      </div>
+
+      <div className="dash-quick-actions">
+        <a href="#telegram" className="dash-action-btn dash-action-telegram">
+          <Send className="h-4 w-4" /> Join Telegram
+        </a>
+        <a href="#whatsapp" className="dash-action-btn dash-action-whatsapp">
+          <MessageCircle className="h-4 w-4" /> Join WhatsApp
+        </a>
+      </div>
+
+      <div className="dash-referral-card glass">
+        <div className="dash-referral-icon">
+          <Gift className="h-5 w-5" />
+        </div>
+        <div className="dash-referral-info">
+          <div className="dash-referral-title">Invite friends, earn ₦100 each</div>
+          <div className="dash-referral-code">
+            Your code: <strong>{referralCode}</strong>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="dash-referral-copy"
+          onClick={copyCode}
+          aria-label="Copy referral code"
+        >
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/RecentActivity.tsx
+```tsx
+import { ArrowRight } from 'lucide-react'
+import { recentActivity } from '../../../lib/dashboard-mock'
+
+export default function RecentActivity() {
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Recent activity</h3>
+        <button type="button" className="dash-section-link">
+          View all <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="dash-activity-list">
+        {recentActivity.map((a) => (
+          <div key={a.id} className="dash-activity-item glass">
+            <div className="dash-activity-info">
+              <div className="dash-activity-title">{a.title}</div>
+              <div className="dash-activity-meta">{a.meta}</div>
+            </div>
+            <div className={`dash-activity-amount ${a.positive ? 'positive' : 'negative'}`}>
+              {a.amount}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/RoleCTA.tsx
+```tsx
+import { ArrowRight, Megaphone, Briefcase } from 'lucide-react'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function RoleCTA({ user }: { user: StoredUser | null }) {
+  const isAdvertiser = user?.role === 'advertiser'
+
+  return (
+    <div className="dash-role-cta glass-strong">
+      <div className="dash-role-cta-icon">
+        {isAdvertiser ? (
+          <Megaphone className="h-5 w-5" />
+        ) : (
+          <Briefcase className="h-5 w-5" />
+        )}
+      </div>
+      <div className="dash-role-cta-text">
+        <div className="dash-role-cta-title">
+          {isAdvertiser ? 'Ready to grow your brand?' : 'Ready to start earning?'}
+        </div>
+        <div className="dash-role-cta-subtitle">
+          {isAdvertiser
+            ? 'Post a task and reach thousands of active workers today.'
+            : 'Browse available tasks and get your first payout today.'}
+        </div>
+      </div>
+      <button type="button" className="dash-role-cta-btn btn-glow">
+        {isAdvertiser ? 'Post a task' : 'Find tasks'} <ArrowRight className="h-4 w-4" />
       </button>
     </div>
-  );
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/StatsGrid.tsx
+```tsx
+import { motion } from 'framer-motion'
+import { statCards } from '../../../lib/dashboard-mock'
+
+export default function StatsGrid({ balance }: { balance?: string }) {
+  const cards = statCards.map((c) =>
+    c.id === 'balance' && balance ? { ...c, value: balance } : c,
+  )
+
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Your overview</h3>
+      </div>
+      <div className="dash-stats-grid">
+        {cards.map((s, i) => {
+          const Icon = s.icon
+          return (
+            <motion.div
+              key={s.id}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.05 }}
+              className={`dash-stat-card glass dash-stat-${s.accent}`}
+            >
+              <div className="dash-stat-icon">
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="dash-stat-value">{s.value}</div>
+              <div className="dash-stat-label">{s.label}</div>
+              <div className="dash-stat-helper">{s.helper}</div>
+            </motion.div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/TaskCategoriesStrip.tsx
+```tsx
+import { ArrowRight } from 'lucide-react'
+import { quickCategories } from '../../../lib/dashboard-mock'
+
+export default function TaskCategoriesStrip() {
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Browse tasks by platform</h3>
+        <button type="button" className="dash-section-link">
+          View all <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="dash-categories-scroll dash-no-scrollbar">
+        {quickCategories.map((c) => {
+          const Icon = c.icon
+          return (
+            <button type="button" key={c.name} className="dash-category-chip glass">
+              <span className="dash-category-chip-icon">
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="dash-category-chip-name">{c.name}</span>
+              <span className="dash-category-chip-rate">{c.rate}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/WelcomeSection.tsx
+```tsx
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function WelcomeSection({ user }: { user: StoredUser | null }) {
+  return (
+    <div className="dash-welcome">
+      <h2 className="dash-welcome-title">
+        Welcome back, {user ? `${user.firstName} ${user.lastName}` : 'friend'}!{' '}
+        <span className="dash-welcome-wave">👋</span>
+      </h2>
+      <p className="dash-welcome-subtitle">
+        Here's what's happening with your account today.
+      </p>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/dashboard-actions.css
+```css
+/* Dashboard: quick action grid (Deposit / Withdraw / Airtime / Job) */
+
+.dash-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.dash-action-card {
+  width: 100%;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  padding: 0.9rem;
+  border-radius: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.dash-action-card:hover {
+  transform: translateY(-1px);
+}
+
+.dash-action-card:active {
+  transform: translateY(0px);
+}
+
+.dash-action-card:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.55);
+  outline-offset: 2px;
+}
+
+.dash-action-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 0.15rem;
+}
+
+.dash-action-icon {
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Accent variants */
+.dash-action-blue .dash-action-icon {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+
+.dash-action-green .dash-action-icon {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.dash-action-purple .dash-action-icon {
+  background: rgba(124, 58, 237, 0.2);
+  color: #a78bfa;
+}
+
+.dash-action-pink .dash-action-icon {
+  background: rgba(236, 72, 153, 0.2);
+  color: #f472b6;
+}
+
+.dash-action-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.dash-action-subtitle {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  line-height: 1.35;
+}
+
+@media (max-width: 380px) {
+  .dash-action-card {
+    padding: 0.8rem;
+  }
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/profilebar-overrides.css
+```css
+/* Profile bar: tiny refresh icon + balance truncation */
+
+.dash-balance-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+/* Truncate balance so it never eats the right side */
+.dash-balance-text {
+  display: inline-block;
+  max-width: 10.5ch; /* enough for ₦12,345,678 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* Tiny refresh button placed right before "NGN" */
+.dash-balance-refresh {
+  height: 1rem;
+  width: 1rem;
+  padding: 0;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(179, 191, 214, 0.85); /* muted-foreground-ish */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+
+  /* make it sit slightly lower than the balance text,
+     so it looks "tucked" close to the NGN label */
+  transform: translateY(0.18rem);
+}
+
+.dash-balance-refresh:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dash-balance-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dash-balance-refresh-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.dash-balance-refresh-spin {
+  animation: dash-refresh-spin 0.85s linear infinite;
+}
+
+@keyframes dash-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+```
+
+---
+
+### FILE PATH: src/pages/Deposit/DepositPage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowDownToLine, Loader2, X } from 'lucide-react'
+import { initializeDeposit } from '../../api/payments'
+import { ApiError } from '../../api/http'
+import '../../App.css'
+import '../../styles.css'
+import './deposit.css'
+
+const FEE_NAIRA = 50
+const MIN_AMOUNT_NAIRA = 50
+
+function formatNaira(n: number) {
+  const hasDecimals = Math.round(n * 100) % 100 !== 0
+  const formatted = new Intl.NumberFormat('en-NG', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(n)
+  return `₦${formatted}`
+}
+
+export default function DepositPage() {
+  const navigate = useNavigate()
+  const [amount, setAmount] = useState<string>('') // naira
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const amountNaira = useMemo(() => {
+    const n = Number(amount)
+    return Number.isFinite(n) ? n : 0
+  }, [amount])
+
+  const totalNaira = useMemo(() => {
+    if (!amount) return 0
+    const n = Number(amount)
+    if (!Number.isFinite(n) || n <= 0) return 0
+    return n + FEE_NAIRA
+  }, [amount])
+
+  function close() {
+    navigate('/dashboard', { replace: true })
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function submit() {
+    setError(null)
+
+    const raw = Number(amount)
+    if (!amount || !Number.isFinite(raw)) {
+      setError('Please enter a valid amount.')
+      return
+    }
+    if (raw < MIN_AMOUNT_NAIRA) {
+      setError(`Minimum deposit amount is ₦${MIN_AMOUNT_NAIRA}.`)
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      // Send NAIRA units (backend converts to kobo for Paystack)
+      const res = await initializeDeposit(totalNaira)
+
+      // Open Paystack checkout in a new tab
+      const w = window.open(res.authorizationUrl, '_blank', 'noopener,noreferrer')
+      if (!w) {
+        // Popup blockers on mobile sometimes prevent new tabs
+        window.location.href = res.authorizationUrl
+        return
+      }
+
+      close()
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message)
+      else setError('Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="deposit-page">
+      <div className="deposit-orb-1" />
+      <div className="deposit-orb-2" />
+
+      <div
+        className="deposit-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Deposit"
+        onMouseDown={(e) => {
+          if (e.currentTarget === e.target) close()
+        }}
+      >
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="deposit-dialog glass-strong"
+          >
+            <div className="deposit-header">
+              <div className="deposit-title-wrap">
+                <div className="deposit-icon">
+                  <ArrowDownToLine className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="deposit-title">Deposit to wallet</div>
+                  <div className="deposit-subtitle">
+                    Enter an amount (min ₦{MIN_AMOUNT_NAIRA}). A ₦{FEE_NAIRA} fee applies.
+                  </div>
+                </div>
+              </div>
+
+              <button className="deposit-close" type="button" onClick={close} aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="deposit-form">
+              <div className="deposit-field">
+                <div className="deposit-label">Amount</div>
+                <div className="deposit-input-wrap">
+                  <span className="deposit-prefix">₦</span>
+                  <input
+                    className="deposit-input"
+                    value={amount}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^\d]/g, '')
+                      setAmount(v)
+                      if (error) setError(null)
+                    }}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="200"
+                    aria-label="Deposit amount in naira"
+                  />
+                </div>
+                <div className="deposit-hint">
+                  You’ll be redirected to Paystack to complete payment.
+                </div>
+              </div>
+
+              <div className="deposit-breakdown">
+                <div className="deposit-row">
+                  <span>Deposit</span>
+                  <strong>{amount ? formatNaira(amountNaira) : '—'}</strong>
+                </div>
+                <div className="deposit-row">
+                  <span>Fee</span>
+                  <strong>{amount ? formatNaira(FEE_NAIRA) : '—'}</strong>
+                </div>
+                <div className="deposit-row">
+                  <span>Total</span>
+                  <strong>{amount ? formatNaira(totalNaira) : '—'}</strong>
+                </div>
+              </div>
+
+              {error && <div className="deposit-error">{error}</div>}
+
+              <button
+                type="button"
+                className="deposit-submit"
+                onClick={submit}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 deposit-spinner" /> Initializing…
+                  </>
+                ) : (
+                  'Continue to Paystack'
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Deposit/deposit.css
+```css
+.deposit-page {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  position: relative;
+  overflow: hidden;
+}
+
+/* subtle dashboard-like orbs */
+.deposit-orb-1,
+.deposit-orb-2 {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.deposit-orb-1 {
+  width: 22rem;
+  height: 22rem;
+  top: -7rem;
+  left: -6rem;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.55) 0%, transparent 70%);
+}
+
+.deposit-orb-2 {
+  width: 20rem;
+  height: 20rem;
+  bottom: -8rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, transparent 70%);
+}
+
+.deposit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.62);
+  backdrop-filter: blur(10px);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.deposit-dialog {
+  width: 100%;
+  max-width: 28rem;
+  border-radius: 1.25rem;
+  padding: 1.15rem 1.1rem;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.55);
+}
+
+.deposit-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.deposit-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.deposit-icon {
+  height: 2.4rem;
+  width: 2.4rem;
+  border-radius: 0.9rem;
+  background: rgba(37, 99, 235, 0.2);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.deposit-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.deposit-subtitle {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.deposit-close {
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.deposit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.deposit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.deposit-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.deposit-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.deposit-prefix {
+  font-weight: 800;
+  color: var(--foreground);
+  opacity: 0.9;
+}
+
+.deposit-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--foreground);
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.deposit-hint {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+
+.deposit-breakdown {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem 0.85rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.deposit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.deposit-row strong {
+  color: var(--foreground);
+  font-weight: 800;
+}
+
+.deposit-error {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.deposit-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.95rem;
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--primary-foreground);
+  background: var(--gradient-brand);
+}
+
+.deposit-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.deposit-spinner {
+  animation: deposit-spin 0.75s linear infinite;
+}
+
+@keyframes deposit-spin {
+  to { transform: rotate(360deg); }
 }
 ```
 
@@ -3386,6 +5677,2094 @@ export default function SignUpPage() {
 
 ---
 
+### FILE PATH: src/pages/Submissions/SubmissionsPage.tsx
+```tsx
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Loader2, CheckCircle2, XCircle, Clock3 } from 'lucide-react'
+import { getMySubmissions, type SubmissionHistoryItem } from '../../api/tasks'
+import { ApiError } from '../../api/http'
+import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
+import { formatNairaFromKobo } from '../../lib/money'
+import DashboardHeader from '../Dashboard/components/DashboardHeader'
+import BottomNav from '../Dashboard/components/BottomNav'
+import '../../App.css'
+import '../../styles.css'
+import './submissions.css'
+
+export default function SubmissionsPage() {
+  const navigate = useNavigate()
+  const user = getStoredUser()
+
+  const [loading, setLoading] = useState(true)
+  const [submissions, setSubmissions] = useState<SubmissionHistoryItem[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+
+    async function load() {
+      try {
+        const res = await getMySubmissions()
+        if (!alive) return
+        setSubmissions(res.submissions ?? [])
+      } catch (err) {
+        if (!alive) return
+
+        if (err instanceof ApiError && err.status === 401) {
+          clearAuthSession()
+          navigate('/login', { replace: true })
+          return
+        }
+
+        if (err instanceof ApiError) setError(err.message)
+        else setError('Failed to load submissions.')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      alive = false
+    }
+  }, [navigate])
+
+  function handleLogout() {
+    clearAuthSession()
+    navigate('/')
+  }
+
+  return (
+    <div className="sub-page">
+      <DashboardHeader user={user} onLogout={handleLogout} />
+
+      <div className="sub-shell">
+        <h1 className="sub-title">Your Submissions</h1>
+
+        {loading ? (
+          <div className="sub-loading">
+            <Loader2 className="sub-spinner" />
+          </div>
+        ) : error ? (
+          <div className="sub-error">{error}</div>
+        ) : submissions.length === 0 ? (
+          <div className="sub-empty">You haven't submitted any tasks yet.</div>
+        ) : (
+          <div className="sub-list">
+            {submissions.map((s) => (
+              <div key={s.id} className="sub-card glass">
+                <div className="sub-card-top">
+                  <div className="sub-job">{s.job_description}</div>
+                  <div className="sub-earn text-gradient">
+                    {formatNairaFromKobo(s.worker_earn_kobo)}
+                  </div>
+                </div>
+
+                <div className="sub-meta">
+                  <span>{s.category_name} · {s.subcategory_name}</span>
+                </div>
+
+                <div className="sub-status-row">
+                  {s.status === 'pending' && (
+                    <span className="sub-status pending">
+                      <Clock3 className="h-3 w-3" /> Pending
+                    </span>
+                  )}
+                  {s.status === 'approved' && (
+                    <span className="sub-status approved">
+                      <CheckCircle2 className="h-3 w-3" /> Approved
+                    </span>
+                  )}
+                  {s.status === 'rejected' && (
+                    <span className="sub-status rejected">
+                      <XCircle className="h-3 w-3" /> Rejected
+                    </span>
+                  )}
+                </div>
+
+                {s.status === 'rejected' && s.rejection_reason && (
+                  <div className="sub-reason">
+                    {s.rejection_reason}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <BottomNav role={user?.role} />
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Submissions/submissions.css
+```css
+.sub-page {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  padding-bottom: 6.5rem;
+}
+
+.sub-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 6.5rem 1rem 1.5rem;
+}
+
+.sub-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 900;
+  margin-bottom: 1rem;
+}
+
+.sub-loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.sub-spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+.sub-error {
+  padding: 0.75rem;
+  border-radius: 0.8rem;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.sub-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted-foreground);
+}
+
+.sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sub-card {
+  padding: 0.9rem;
+  border-radius: 1rem;
+}
+
+.sub-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.sub-job {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.sub-earn {
+  font-weight: 900;
+  font-size: 0.85rem;
+}
+
+.sub-meta {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  margin-top: 0.4rem;
+}
+
+.sub-status-row {
+  margin-top: 0.6rem;
+}
+
+.sub-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+}
+
+.sub-status.pending {
+  background: rgba(96, 165, 250, 0.15);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: #60a5fa;
+}
+
+.sub-status.approved {
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #34d399;
+}
+
+.sub-status.rejected {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.sub-reason {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #fca5a5;
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/BrowseTasksPage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Search,
+  RefreshCw,
+  ExternalLink,
+  Pickaxe,
+  Users,
+  Clock3,
+  BadgeCheck,
+} from 'lucide-react'
+import {
+  getTasks,
+  getTaskCategories,
+  type TaskDto,
+  type TaskCategoryDto,
+} from '../../api/tasks'
+import { ApiError } from '../../api/http'
+import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
+import { formatNairaFromKobo } from '../../lib/money'
+import { getPlatformIcon, getBannerUrl, formatDateShort } from '../../lib/task-visuals'
+import { isAuthFailure } from '../../lib/api-errors'
+import { openExternalLink } from '../../lib/links'
+import { spawnRipple } from '../../lib/ripple'
+import DashboardHeader from '../Dashboard/components/DashboardHeader'
+import BottomNav from '../Dashboard/components/BottomNav'
+import TaskCardSkeleton from './components/TaskCardSkeleton'
+import '../../App.css'
+import '../../styles.css'
+import './tasks.css'
+import './tasks-skeleton.css'
+
+function uniq<T>(arr: T[]): T[] {
+  return Array.from(new Set(arr))
+}
+
+export default function BrowseTasksPage() {
+  const navigate = useNavigate()
+  const user = getStoredUser()
+
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [tasks, setTasks] = useState<TaskDto[]>([])
+  const [categories, setCategories] = useState<TaskCategoryDto[]>([])
+
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<string>('ALL')
+  const [subcategory, setSubcategory] = useState<string>('ALL')
+
+  async function loadAll(isManual = false) {
+    if (isManual) setRefreshing(true)
+    else setLoading(true)
+
+    setError(null)
+    try {
+      const [t, c] = await Promise.all([getTasks(), getTaskCategories()])
+      setTasks(t.tasks ?? [])
+      setCategories(c.categories ?? [])
+    } catch (err) {
+      if (isAuthFailure(err)) {
+        clearAuthSession()
+        navigate('/login', { replace: true })
+        return
+      }
+      if (err instanceof ApiError) setError(err.message)
+      else setError('Failed to load tasks. Please try again.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAll(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const categoryOptions = useMemo(() => {
+    const names = uniq(categories.map((c) => c.category_name))
+    names.sort()
+    return ['ALL', ...names]
+  }, [categories])
+
+  const subcategoryOptions = useMemo(() => {
+    if (category === 'ALL') return ['ALL']
+    const subs = uniq(
+      categories
+        .filter((c) => c.category_name === category)
+        .map((c) => c.subcategory_name),
+    )
+    subs.sort()
+    return ['ALL', ...subs]
+  }, [categories, category])
+
+  useEffect(() => {
+    if (!subcategoryOptions.includes(subcategory)) setSubcategory('ALL')
+  }, [subcategoryOptions, subcategory])
+
+  const filteredTasks = useMemo(() => {
+    const q = search.trim().toLowerCase()
+
+    return tasks.filter((t) => {
+      if (category !== 'ALL' && t.category_name !== category) return false
+      if (subcategory !== 'ALL' && t.subcategory_name !== subcategory) return false
+
+      if (!q) return true
+      const hay = [
+        t.job_description,
+        t.category_name,
+        t.subcategory_name,
+        t.advertiser_username,
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      return hay.includes(q)
+    })
+  }, [tasks, search, category, subcategory])
+
+  function handleLogout() {
+    clearAuthSession()
+    navigate('/')
+  }
+
+  const liveCount = filteredTasks.length
+
+  return (
+    <div className="tasks-page">
+      <div className="tasks-orb-1" />
+      <div className="tasks-orb-2" />
+
+      <DashboardHeader user={user} onLogout={handleLogout} />
+
+      <div className="tasks-shell">
+        {/* Hero / intro */}
+        <section className="tasks-hero glass-strong">
+          <div className="tasks-hero-icon glass">
+            <Pickaxe className="h-5 w-5" />
+          </div>
+
+          <h1 className="tasks-hero-title">
+            Task Feed — <span className="text-gradient">earn daily</span>
+          </h1>
+
+          <p className="tasks-hero-subtitle">
+            Pick a quick job, submit proof, get paid to your Taskora wallet.
+            Keep it simple—no long applications.
+          </p>
+
+          <div className="tasks-hero-stats">
+            <div className="tasks-mini-stat glass">
+              <div className="tasks-mini-stat-top">{loading ? '—' : liveCount}</div>
+              <div className="tasks-mini-stat-bottom">Live tasks</div>
+            </div>
+            <div className="tasks-mini-stat glass">
+              <div className="tasks-mini-stat-top">₦50M+</div>
+              <div className="tasks-mini-stat-bottom">Paid out</div>
+            </div>
+            <div className="tasks-mini-stat glass">
+              <div className="tasks-mini-stat-top">19k+</div>
+              <div className="tasks-mini-stat-bottom">Workers</div>
+            </div>
+          </div>
+
+          <div className="tasks-hero-actions">
+            <div className="tasks-search">
+              <Search className="h-4 w-4" style={{ color: 'var(--muted-foreground)' }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tasks…"
+              />
+              <button
+                type="button"
+                className="tasks-refresh"
+                onClick={() => loadAll(true)}
+                disabled={loading || refreshing}
+                aria-label="Refresh tasks"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'tasks-refresh-spin' : ''}`} />
+              </button>
+            </div>
+
+            <details className="tasks-categories glass" open={false}>
+              <summary className="tasks-categories-summary">
+                <span className="tasks-categories-label">Categories</span>
+                <span className="tasks-categories-value">
+                  {category === 'ALL' ? 'All platforms' : category}
+                  {subcategory !== 'ALL' ? ` · ${subcategory}` : ''}
+                </span>
+              </summary>
+
+              <div className="tasks-categories-body">
+                <div className="tasks-filter-row">
+                  {categoryOptions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`tasks-chip ${category === name ? 'tasks-chip-active' : ''}`}
+                      onClick={() => setCategory(name)}
+                    >
+                      {name === 'ALL' ? 'All' : name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="tasks-filter-row">
+                  {subcategoryOptions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`tasks-chip ${subcategory === name ? 'tasks-chip-active' : ''}`}
+                      onClick={() => setSubcategory(name)}
+                      disabled={category === 'ALL' && name !== 'ALL'}
+                      style={
+                        category === 'ALL' && name !== 'ALL'
+                          ? { opacity: 0.45, cursor: 'not-allowed' }
+                          : undefined
+                      }
+                    >
+                      {name === 'ALL' ? 'All' : name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        {error && <div className="tasks-error">{error}</div>}
+
+        {/* List */}
+        <div className="tasks-list">
+          {loading ? (
+            <>
+              <TaskCardSkeleton />
+              <TaskCardSkeleton />
+              <TaskCardSkeleton />
+            </>
+          ) : filteredTasks.length === 0 ? (
+            <div className="tasks-empty">No tasks match your filters right now.</div>
+          ) : (
+            filteredTasks.map((t) => {
+              const Icon = getPlatformIcon(t.category_name)
+              const banner = getBannerUrl(t.category_name)
+
+              return (
+                <article key={t.id} className="task-card glass-strong">
+                  <div className="task-banner">
+                    <img src={banner} alt="" loading="lazy" />
+                    <div className="task-banner-overlay" />
+                    <div className="task-banner-chip glass">
+                      <Icon className="h-4 w-4" />
+                      <span>{t.category_name}</span>
+                    </div>
+                  </div>
+
+                  <div className="task-card-inner">
+                    <div className="task-body">
+                      {/* Badges row */}
+                      <div className="task-top">
+                        <div className="task-badges">
+                          <span className="task-badge task-badge-muted">
+                            {t.subcategory_name}
+                          </span>
+                          {t.proof_required && (
+                            <span className="task-badge task-badge-muted task-badge-proof">
+                              <BadgeCheck className="task-mini-icon" />
+                              Proof
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          className="task-earn text-gradient"
+                          title="Earnings per completion"
+                        >
+                          {formatNairaFromKobo(t.worker_earn_kobo)}
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      <div className="task-desc">{t.job_description}</div>
+
+                      {/* Meta block (extra spacing) */}
+                      <div className="task-meta">
+                        <div className="task-meta-item">
+                          <Users className="task-mini-icon" />
+                          <span>
+                            <strong>{t.spots_remaining}</strong> spots
+                          </span>
+                        </div>
+                        <div className="task-meta-item">
+                          <Clock3 className="task-mini-icon" />
+                          <span>
+                            Expires <strong>{formatDateShort(t.expires_at)}</strong>
+                          </span>
+                        </div>
+                        <div className="task-meta-item">
+                          <span>
+                            By <strong>@{t.advertiser_username}</strong>
+                          </span>
+                        </div>
+                        <div className="task-meta-item">
+                          <span>
+                            Done <strong>{t.completed_count}/{t.quantity}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="task-actions">
+                        <button
+                          type="button"
+                          className="task-btn task-btn-ghost"
+                          onClick={() => openExternalLink(t.job_link)}
+                        >
+                          <span className="task-btn-inline">
+                            Open <ExternalLink className="h-4 w-4" />
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="task-btn task-btn-primary task-btn-apply"
+                          onClick={(e) => {
+                            spawnRipple(e)
+                            navigate(`/tasks/${t.id}`)
+                          }}
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      <BottomNav role={user?.role} />
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/TaskDetailPage.tsx
+```tsx
+import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  ArrowLeft,
+  ExternalLink,
+  Users,
+  Clock3,
+  BadgeCheck,
+  ImagePlus,
+  Loader2,
+  CheckCircle2,
+  X,
+} from 'lucide-react'
+import { getTaskById, submitTaskProof, type TaskDto } from '../../api/tasks'
+import { ApiError } from '../../api/http'
+import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
+import { formatNairaFromKobo } from '../../lib/money'
+import { getPlatformIcon, getBannerUrl, formatDateShort } from '../../lib/task-visuals'
+import { isAuthFailure, isSessionExpired } from '../../lib/api-errors'
+import { openExternalLink } from '../../lib/links'
+import { spawnRipple } from '../../lib/ripple'
+import { uploadProofScreenshot } from '../../lib/upload-proof'
+import DashboardHeader from '../Dashboard/components/DashboardHeader'
+import BottomNav from '../Dashboard/components/BottomNav'
+import TaskDetailSkeleton from './components/TaskDetailSkeleton'
+import '../../App.css'
+import '../../styles.css'
+import './tasks.css'
+import './tasks-skeleton.css'
+import './task-detail.css'
+
+export default function TaskDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const user = getStoredUser()
+
+  const [loading, setLoading] = useState(true)
+  const [task, setTask] = useState<TaskDto | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [proofText, setProofText] = useState('')
+
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    let alive = true
+
+    async function load() {
+      if (!id) return
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const res = await getTaskById(id)
+        if (!alive) return
+        setTask(res.task)
+      } catch (err) {
+        if (!alive) return
+        if (isAuthFailure(err)) {
+          clearAuthSession()
+          navigate('/login', { replace: true })
+          return
+        }
+        console.error('[TaskDetail] load failed:', err)
+        if (err instanceof ApiError) setLoadError(err.message)
+        else if (err instanceof Error) setLoadError(err.message)
+        else setLoadError('Failed to load this task. Please try again.')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      alive = false
+    }
+  }, [id, navigate])
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setSubmitError('Please select an image file.')
+      return
+    }
+    setSubmitError(null)
+    setSelectedFile(file)
+    const url = URL.createObjectURL(file)
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return url
+    })
+  }
+
+  function clearFile() {
+    setSelectedFile(null)
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function handlePerformJob() {
+    if (task) openExternalLink(task.job_link)
+  }
+
+  function handleLogout() {
+    clearAuthSession()
+    navigate('/')
+  }
+
+  const needsProof = !!task?.proof_required
+  const isScreenshotProof = task?.proof_type === 'SCREENSHOT'
+  const isTextProof = needsProof && !isScreenshotProof
+
+  const isExpired = task ? new Date(task.expires_at).getTime() < Date.now() : false
+  const taskUnavailable = task
+    ? (task.status ? task.status !== 'active' : false) || task.spots_remaining <= 0 || isExpired
+    : false
+
+  const canSubmit =
+    !!task &&
+    !taskUnavailable &&
+    !submitting &&
+    !submitted &&
+    (!needsProof ||
+      (isScreenshotProof && !!selectedFile) ||
+      (isTextProof && proofText.trim().length > 0))
+
+  async function handleSubmit(e: MouseEvent<HTMLButtonElement>) {
+    spawnRipple(e, 'task-detail-submit-ripple')
+    if (!task || !canSubmit) return
+
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      let proofValue: string | undefined
+
+      if (isScreenshotProof && selectedFile) {
+        proofValue = await uploadProofScreenshot(selectedFile, task.id, user?.id)
+      } else if (isTextProof) {
+        proofValue = proofText.trim()
+      }
+
+      await submitTaskProof(task.id, proofValue)
+      setSubmitted(true)
+    } catch (err) {
+      if (isSessionExpired(err)) {
+        clearAuthSession()
+        navigate('/login', { replace: true })
+        return
+      }
+
+      // Log the raw error so the real cause (Supabase, network, API) is visible in devtools.
+      console.error('[TaskDetail] submit failed:', err)
+
+      if (err instanceof ApiError) {
+        setSubmitError(err.message)
+      } else if (err instanceof Error) {
+        setSubmitError(err.message)
+      } else {
+        setSubmitError('Something went wrong while submitting. Please try again.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const PlatformIcon = task ? getPlatformIcon(task.category_name) : null
+
+  return (
+    <div className="task-detail-page">
+      <div className="task-detail-orb-1" />
+      <div className="task-detail-orb-2" />
+
+      <DashboardHeader user={user} onLogout={handleLogout} />
+
+      <div className="task-detail-shell">
+        <button type="button" className="task-detail-back" onClick={() => navigate('/tasks')}>
+          <ArrowLeft className="h-4 w-4" /> Back to tasks
+        </button>
+
+        {loading ? (
+          <TaskDetailSkeleton />
+        ) : loadError ? (
+          <div className="task-detail-error">{loadError}</div>
+        ) : task ? (
+          <>
+            <section className="task-detail-hero glass-strong">
+              <div className="task-detail-banner">
+                <img src={getBannerUrl(task.category_name)} alt="" loading="lazy" />
+                <div className="task-detail-banner-overlay" />
+                <div className="task-detail-banner-chip glass">
+                  {PlatformIcon && <PlatformIcon className="h-4 w-4" />}
+                  <span>{task.category_name}</span>
+                </div>
+                <div className="task-detail-earn-chip text-gradient">
+                  {formatNairaFromKobo(task.worker_earn_kobo)}
+                </div>
+              </div>
+
+              <div className="task-detail-body">
+                <div className="task-detail-top">
+                  <span className="task-detail-badge">{task.subcategory_name}</span>
+                  {task.proof_required && (
+                    <span className="task-detail-badge">
+                      <BadgeCheck className="task-mini-icon" /> Proof required
+                    </span>
+                  )}
+                  {task.status && (
+                    <span className="task-detail-badge task-detail-badge-status">
+                      {task.status}
+                    </span>
+                  )}
+                </div>
+
+                <h1 className="task-detail-title">{task.job_description}</h1>
+
+                <div className="task-detail-meta-grid">
+                  <div className="task-detail-meta-item">
+                    <Users className="task-mini-icon" />
+                    <span>
+                      <strong>{task.spots_remaining}</strong> spots left
+                    </span>
+                  </div>
+                  <div className="task-detail-meta-item">
+                    <Clock3 className="task-mini-icon" />
+                    <span>
+                      Expires <strong>{formatDateShort(task.expires_at)}</strong>
+                    </span>
+                  </div>
+                  <div className="task-detail-meta-item">
+                    <span>
+                      By <strong>@{task.advertiser_username}</strong>
+                    </span>
+                  </div>
+                  <div className="task-detail-meta-item">
+                    <span>
+                      Done{' '}
+                      <strong>
+                        {task.completed_count}/{task.quantity}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {submitted ? (
+              <div className="task-detail-success">
+                <CheckCircle2 className="h-5 w-5" />
+                <span>Submitted! Your proof is pending review.</span>
+              </div>
+            ) : taskUnavailable ? (
+              <div className="task-detail-unavailable">
+                This task is no longer accepting submissions.
+              </div>
+            ) : (
+              <>
+                <section className="task-detail-card glass">
+                  <div className="task-detail-step-label">
+                    <span className="task-detail-step-number">1</span>
+                    Perform the job
+                  </div>
+                  <div className="task-detail-link-preview">{task.job_link}</div>
+                  <button
+                    type="button"
+                    className="task-detail-perform-btn"
+                    onClick={handlePerformJob}
+                  >
+                    Open job link <ExternalLink className="h-4 w-4" />
+                  </button>
+                </section>
+
+                <section className="task-detail-card glass">
+                  <div className="task-detail-step-label">
+                    <span className="task-detail-step-number">2</span>
+                    {needsProof ? 'Submit your proof' : 'Confirm completion'}
+                  </div>
+
+                  {!needsProof && (
+                    <p className="task-detail-not-required">
+                      No proof needed for this task — just hit submit once you're done.
+                    </p>
+                  )}
+
+                  {isScreenshotProof &&
+                    (previewUrl ? (
+                      <div className="task-detail-preview">
+                        <img src={previewUrl} alt="Selected proof" />
+                        <button
+                          type="button"
+                          className="task-detail-preview-remove"
+                          onClick={clearFile}
+                          aria-label="Remove image"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="task-detail-upload">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          style={{ display: 'none' }}
+                        />
+                        <span className="task-detail-upload-icon">
+                          <ImagePlus className="h-5 w-5" />
+                        </span>
+                        <span className="task-detail-upload-text">Select a screenshot</span>
+                        <span className="task-detail-upload-hint">
+                          PNG or JPG from your gallery
+                        </span>
+                      </label>
+                    ))}
+
+                  {isTextProof && (
+                    <input
+                      type="text"
+                      className="task-detail-text-input"
+                      placeholder={`Enter your ${task.proof_type.toLowerCase()} proof`}
+                      value={proofText}
+                      onChange={(e) => setProofText(e.target.value)}
+                    />
+                  )}
+
+                  {submitError && (
+                    <div className="task-detail-error" style={{ marginTop: '0.75rem' }}>
+                      {submitError}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="task-detail-submit"
+                    onClick={handleSubmit}
+                    disabled={!canSubmit}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 task-detail-spinner" /> Submitting…
+                      </>
+                    ) : (
+                      'Submit proof'
+                    )}
+                  </button>
+                </section>
+              </>
+            )}
+          </>
+        ) : null}
+      </div>
+
+      <BottomNav role={user?.role} />
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/components/TaskCardSkeleton.tsx
+```tsx
+export default function TaskCardSkeleton() {
+  return (
+    <div className="task-skel">
+      <div className="task-skel-banner" />
+
+      <div className="task-skel-body">
+        <div className="task-skel-row">
+          <div className="task-skel-pill" />
+          <div className="task-skel-pill" />
+          <div className="task-skel-bar grow" />
+        </div>
+
+        <div className="task-skel-row">
+          <div className="task-skel-bar xl" />
+        </div>
+
+        <div className="task-skel-row">
+          <div className="task-skel-bar sm" />
+          <div className="task-skel-bar md" />
+          <div className="task-skel-bar sm" />
+        </div>
+
+        <div className="task-skel-row">
+          <div className="task-skel-bar md" />
+          <div className="task-skel-bar md" />
+        </div>
+
+        <div className="task-skel-actions">
+          <div className="task-skel-btn" />
+          <div className="task-skel-btn" />
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/components/TaskDetailSkeleton.tsx
+```tsx
+export default function TaskDetailSkeleton() {
+  return (
+    <div className="task-detail-skel">
+      <div className="task-skel-banner" style={{ height: '11rem', borderRadius: '1.15rem' }} />
+
+      <div className="task-detail-skel-body">
+        <div className="task-skel-row">
+          <div className="task-skel-pill" />
+          <div className="task-skel-pill" />
+        </div>
+        <div className="task-skel-row">
+          <div className="task-skel-bar xl" />
+        </div>
+        <div className="task-skel-row">
+          <div className="task-skel-bar grow" />
+        </div>
+        <div className="task-skel-row">
+          <div className="task-skel-bar sm" />
+          <div className="task-skel-bar md" />
+          <div className="task-skel-bar sm" />
+          <div className="task-skel-bar md" />
+        </div>
+      </div>
+
+      <div className="task-detail-skel-card">
+        <div className="task-skel-bar lg" />
+        <div className="task-skel-btn" style={{ marginTop: '0.6rem' }} />
+      </div>
+
+      <div className="task-detail-skel-card">
+        <div className="task-skel-bar lg" />
+        <div
+          className="task-skel-banner"
+          style={{ height: '7rem', marginTop: '0.6rem', borderRadius: '0.9rem' }}
+        />
+        <div className="task-skel-btn" style={{ marginTop: '0.6rem' }} />
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/task-detail.css
+```css
+.task-detail-page {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  position: relative;
+  overflow-x: hidden;
+  padding-bottom: 6.5rem;
+}
+
+.task-detail-orb-1,
+.task-detail-orb-2 {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.task-detail-orb-1 {
+  width: 22rem;
+  height: 22rem;
+  top: -7rem;
+  left: -6rem;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.55) 0%, transparent 70%);
+}
+
+.task-detail-orb-2 {
+  width: 20rem;
+  height: 20rem;
+  bottom: -8rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, transparent 70%);
+}
+
+.task-detail-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 6.5rem 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: relative;
+}
+
+.task-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--muted-foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem 0;
+  width: fit-content;
+  transition: color 0.15s ease;
+}
+
+.task-detail-back:hover {
+  color: var(--foreground);
+}
+
+/* ── Hero card ───────────────────────────────────────────────────────── */
+
+.task-detail-hero {
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+
+.task-detail-banner {
+  position: relative;
+  height: 11rem;
+  width: 100%;
+  overflow: hidden;
+}
+
+.task-detail-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.task-detail-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(11, 17, 32, 0.05) 0%, rgba(11, 17, 32, 0.9) 96%);
+}
+
+.task-detail-banner-chip {
+  position: absolute;
+  left: 0.85rem;
+  bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 850;
+  color: var(--foreground);
+}
+
+.task-detail-earn-chip {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 900;
+  background: rgba(96, 165, 250, 0.16);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.task-detail-body {
+  padding: 0.95rem 1rem 1.1rem;
+}
+
+.task-detail-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.task-detail-badge {
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.task-detail-badge-status {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.12);
+  text-transform: capitalize;
+}
+
+.task-detail-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 850;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+
+.task-detail-meta-grid {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.task-detail-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.task-detail-meta-item strong {
+  color: var(--foreground);
+  font-weight: 850;
+}
+
+/* ── Step cards ──────────────────────────────────────────────────────── */
+
+.task-detail-card {
+  border-radius: 1.15rem;
+  padding: 1rem;
+}
+
+.task-detail-step-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 850;
+  color: var(--foreground);
+  margin-bottom: 0.7rem;
+}
+
+.task-detail-step-number {
+  height: 1.6rem;
+  width: 1.6rem;
+  border-radius: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(96, 165, 250, 0.16);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.task-detail-link-preview {
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+  word-break: break-all;
+  margin-bottom: 0.75rem;
+}
+
+.task-detail-perform-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.task-detail-perform-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Upload box ──────────────────────────────────────────────────────── */
+
+.task-detail-upload {
+  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 1rem;
+  padding: 1.1rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.task-detail-upload:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(96, 165, 250, 0.05);
+}
+
+.task-detail-upload-icon {
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.8rem;
+  background: rgba(96, 165, 250, 0.14);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-detail-upload-text {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.task-detail-upload-hint {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+}
+
+.task-detail-preview {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.task-detail-preview img {
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  display: block;
+}
+
+.task-detail-preview-remove {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  height: 1.9rem;
+  width: 1.9rem;
+  border-radius: 999px;
+  background: rgba(11, 17, 32, 0.75);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.task-detail-text-input {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--foreground);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.task-detail-text-input:focus {
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+/* ── Submit button: semi glass, ripple ──────────────────────────────────── */
+
+.task-detail-submit {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.14);
+  backdrop-filter: blur(14px) saturate(160%);
+  color: var(--foreground);
+  font-size: 0.88rem;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.15s ease;
+}
+
+.task-detail-submit:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.2);
+  transform: translateY(-1px);
+}
+
+.task-detail-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.task-detail-submit-ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(0);
+  pointer-events: none;
+  animation: task-detail-ripple-anim 600ms ease-out;
+}
+
+@keyframes task-detail-ripple-anim {
+  to {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+.task-detail-spinner {
+  animation: task-detail-spin 0.75s linear infinite;
+}
+
+@keyframes task-detail-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Status banners ──────────────────────────────────────────────────── */
+
+.task-detail-error {
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.task-detail-success {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.task-detail-unavailable {
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.task-detail-not-required {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  padding: 0.3rem 0 0.6rem;
+}
+
+/* ── Skeleton wrapper spacing ────────────────────────────────────────── */
+
+.task-detail-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.task-detail-skel-body {
+  padding: 0.9rem 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.task-detail-skel-card {
+  border-radius: 1.15rem;
+  padding: 1rem;
+  background: rgba(23, 37, 84, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 380px) {
+  .task-detail-banner {
+    height: 9.5rem;
+  }
+  .task-detail-title {
+    font-size: 1.05rem;
+  }
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/tasks-skeleton.css
+```css
+/* Card skeleton (shimmer placeholder) for the browse list */
+
+.task-skel {
+  border-radius: 1.15rem;
+  overflow: hidden;
+  background: rgba(23, 37, 84, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.task-skel-banner {
+  height: 9rem;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-body {
+  padding: 0.55rem 0.7rem 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.task-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-skel-bar {
+  height: 0.7rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-bar.sm { width: 3rem; }
+.task-skel-bar.md { width: 5rem; }
+.task-skel-bar.lg { width: 7.5rem; }
+.task-skel-bar.xl { width: 9rem; }
+.task-skel-bar.grow { flex: 1; }
+
+.task-skel-pill {
+  height: 0.95rem;
+  width: 4rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.task-skel-btn {
+  flex: 1;
+  height: 1.6rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+@keyframes task-skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/tasks.css
+```css
+.tasks-page {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  position: relative;
+  overflow-x: hidden;
+  padding-bottom: 6.5rem;
+}
+
+/* subtle orbs */
+.tasks-orb-1,
+.tasks-orb-2 {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.tasks-orb-1 {
+  width: 22rem;
+  height: 22rem;
+  top: -7rem;
+  left: -6rem;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.55) 0%, transparent 70%);
+}
+
+.tasks-orb-2 {
+  width: 20rem;
+  height: 20rem;
+  bottom: -8rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, transparent 70%);
+}
+
+.tasks-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 6.5rem 1rem 1.25rem;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+
+.tasks-hero {
+  border-radius: 1.25rem;
+  padding: 1rem 0.95rem;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 0.9rem;
+}
+
+.tasks-hero-icon {
+  height: 2.8rem;
+  width: 2.8rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+
+.tasks-hero-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.tasks-hero-subtitle {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+  max-width: 38ch;
+}
+
+.tasks-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.tasks-mini-stat {
+  border-radius: 1rem;
+  padding: 0.6rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.tasks-mini-stat-top {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.tasks-mini-stat-bottom {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  font-weight: 700;
+}
+
+.tasks-hero-actions {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+/* ── Search ───────────────────────────────────────────────────────────── */
+
+.tasks-search {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tasks-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--foreground);
+  font-size: 0.82rem;
+}
+
+.tasks-search input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.tasks-refresh {
+  height: 1.9rem;
+  width: 1.9rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: var(--foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tasks-refresh:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.tasks-refresh-spin {
+  animation: tasks-spin 0.85s linear infinite;
+}
+
+@keyframes tasks-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Categories dropdown ──────────────────────────────────────────────── */
+
+.tasks-categories {
+  border-radius: 1.1rem;
+  padding: 0.55rem 0.6rem;
+}
+
+.tasks-categories-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  outline: none;
+}
+
+.tasks-categories-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tasks-categories-label {
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: var(--muted-foreground);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tasks-categories-value {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.tasks-categories-body {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tasks-filter-row {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: none;
+}
+
+.tasks-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.tasks-chip {
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted-foreground);
+  padding: 0.42rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tasks-chip-active {
+  color: var(--foreground);
+  border-color: rgba(96,165,250,0.45);
+  background: rgba(96,165,250,0.10);
+}
+
+/* ── List & card ─────────────────────────────────────────────────────── */
+
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.task-card {
+  border-radius: 1.15rem;
+  overflow: hidden;
+}
+
+.task-banner {
+  position: relative;
+  height: 9rem;
+  width: 100%;
+  overflow: hidden;
+}
+
+.task-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+}
+
+.task-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(11,17,32,0.10) 0%, rgba(11,17,32,0.85) 95%);
+}
+
+.task-banner-chip {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  color: var(--foreground);
+}
+
+.task-card-inner {
+  padding: 0.55rem 0.7rem 0.65rem;
+}
+
+.task-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* space below badges / above description */
+.task-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.55rem;
+}
+
+.task-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.task-badge {
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.task-badge-muted {
+  color: var(--muted-foreground);
+}
+
+.task-badge-proof {
+  /* icon-only "proof" badge keeps tiny icon size */
+}
+
+.task-earn {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 900;
+  white-space: nowrap;
+  padding-top: 0.1rem;
+}
+
+/* space above description (handled by task-top margin-bottom) */
+.task-desc {
+  font-size: 0.86rem;
+  font-weight: 750;
+  color: var(--foreground);
+  line-height: 1.3;
+  margin-top: 0.15rem;
+}
+
+/* space above meta (gap between description and meta) */
+.task-meta {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+}
+
+.task-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.task-meta strong {
+  color: var(--foreground);
+  font-weight: 850;
+}
+
+/* SMALLER meta icons (Users, Clock3, BadgeCheck) */
+.task-mini-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* space above actions (gap between meta and buttons) */
+.task-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.task-btn {
+  flex: 1;
+  border: none;
+  cursor: pointer;
+  border-radius: 0.75rem;
+  padding: 0.42rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.task-btn-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.task-btn-ghost {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: var(--foreground);
+}
+
+/* Transparent "Apply" with ripple */
+.task-btn-apply {
+  position: relative;
+  overflow: hidden;
+  background: rgba(96, 165, 250, 0.14);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: var(--foreground);
+}
+
+.task-btn-apply:active {
+  background: rgba(96, 165, 250, 0.20);
+}
+
+.task-btn-ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(0);
+  pointer-events: none;
+  animation: task-ripple-anim 550ms ease-out;
+}
+
+@keyframes task-ripple-anim {
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* ── Empty & errors ──────────────────────────────────────────────────── */
+
+.tasks-empty {
+  text-align: center;
+  padding: 2.25rem 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+}
+
+.tasks-error {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 0.78rem;
+  margin: 0.85rem 0 0.95rem;
+}
+
+@media (max-width: 380px) {
+  .tasks-hero-title {
+    font-size: 1.15rem;
+  }
+  .task-banner {
+    height: 8.25rem;
+  }
+}
+```
+
+---
+
 ### FILE PATH: src/routes/AppRoutes.tsx
 ```tsx
 import { Routes, Route, Link, Navigate } from "react-router-dom";
@@ -3393,10 +7772,12 @@ import LandingPage from "../pages/Landing/LandingPage";
 import LoginPage from "../pages/Login/LoginPage";
 import SignUpPage from "../pages/SignUp/SignUpPage";
 import DashboardPage from "../pages/Dashboard/DashboardPage";
+import DepositPage from "../pages/Deposit/DepositPage";
+import BrowseTasksPage from "../pages/Tasks/BrowseTasksPage";
+import TaskDetailPage from "../pages/Tasks/TaskDetailPage";
+import SubmissionsPage from "../pages/Submissions/SubmissionsPage";
 import { isAuthenticated } from "../lib/auth-storage";
 
-// Blocks access to authenticated-only routes (e.g. /dashboard).
-// Bounces unauthenticated visitors to /login.
 function RequireAuth({ children }: { children: JSX.Element }) {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
@@ -3404,8 +7785,6 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   return children;
 }
 
-// Skips public auth pages (/, /login, /signup) for already-logged-in
-// users and sends them straight to /dashboard instead.
 function RedirectIfAuth({ children }: { children: JSX.Element }) {
   if (isAuthenticated()) {
     return <Navigate to="/dashboard" replace />;
@@ -3442,7 +7821,7 @@ export default function AppRoutes() {
         }
       />
 
-      {/* Protected Dashboard Route */}
+      {/* Protected Routes */}
       <Route
         path="/dashboard"
         element={
@@ -3451,6 +7830,42 @@ export default function AppRoutes() {
           </RequireAuth>
         }
       />
+
+      <Route
+        path="/deposit"
+        element={
+          <RequireAuth>
+            <DepositPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/tasks"
+        element={
+          <RequireAuth>
+            <BrowseTasksPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/tasks/:id"
+        element={
+          <RequireAuth>
+            <TaskDetailPage />
+          </RequireAuth>
+        }
+      />
+      
+      <Route
+  path="/submissions"
+  element={
+    <RequireAuth>
+      <SubmissionsPage />
+    </RequireAuth>
+  }
+/>
 
       {/* Fallback 404 Route */}
       <Route
@@ -4037,6 +8452,932 @@ img {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dash-page {
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--background);
+  color: var(--foreground);
+  position: relative;
+  overflow-x: hidden;
+  padding-bottom: 6.5rem;
+}
+
+.dash-main {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.dash-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 0.75rem 1rem 0;
+}
+
+.dash-header-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.dash-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.dash-logo-icon {
+  height: 1.75rem;
+  width: 1.75rem;
+  border-radius: 0.5rem;
+}
+
+.dash-logo-text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--foreground);
+}
+
+.dash-header-menu {
+  position: relative;
+}
+
+.dash-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.dash-menu-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dash-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: 0;
+  width: 15rem;
+  padding: 0.75rem;
+  border-radius: 1rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  z-index: 60;
+}
+
+.dash-menu-user {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.35rem 0.35rem 0.6rem;
+}
+
+.dash-menu-avatar {
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.dash-menu-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.dash-menu-username {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+}
+
+.dash-menu-sep {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0.35rem 0;
+}
+
+.dash-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.65rem;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.dash-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dash-menu-item-danger {
+  color: #f87171;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+
+.dash-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 6.5rem 1rem 3.5rem;
+  text-align: center;
+}
+
+.dash-hero-orb-1,
+.dash-hero-orb-2,
+.dash-hero-orb-3 {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(50px);
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.dash-hero-orb-1 {
+  top: -3rem;
+  left: -2rem;
+  height: 10rem;
+  width: 10rem;
+  background: #2563eb;
+}
+
+.dash-hero-orb-2 {
+  top: 1rem;
+  right: -3rem;
+  height: 9rem;
+  width: 9rem;
+  background: #7c3aed;
+}
+
+.dash-hero-orb-3 {
+  bottom: -2rem;
+  left: 30%;
+  height: 7rem;
+  width: 7rem;
+  background: #60a5fa;
+}
+
+.dash-hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dash-hero-icon {
+  height: 3rem;
+  width: 3rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent, #60a5fa);
+}
+
+.dash-hero-title {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.dash-hero-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.dash-hero-breadcrumb-active {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* ── Content wrapper ─────────────────────────────────────────────────────── */
+
+.dash-content {
+  position: relative;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Profile bar ─────────────────────────────────────────────────────────── */
+
+.dash-profile-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  margin-top: -2.75rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.dash-profile-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.dash-profile-avatar {
+  height: 2.75rem;
+  width: 2.75rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #06b6d4);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.dash-profile-username {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.dash-profile-balance {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.dash-profile-currency {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.dash-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.dash-icon-btn {
+  position: relative;
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dash-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dash-icon-badge {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  height: 1.05rem;
+  min-width: 1.05rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--background);
+}
+
+/* ── Announcement marquee ────────────────────────────────────────────────── */
+
+.dash-announce {
+  overflow: hidden;
+  border-radius: 0.85rem;
+  background: #0b0f1a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dash-announce-track {
+  display: flex;
+  width: max-content;
+}
+
+.dash-announce-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #f1f5f9;
+  white-space: nowrap;
+}
+
+.dash-announce-icon {
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+
+/* ── Welcome ─────────────────────────────────────────────────────────────── */
+
+.dash-welcome-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dash-welcome-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+@keyframes dash-wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+}
+
+.dash-welcome-wave {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: dash-wave 2.4s ease-in-out infinite;
+}
+
+/* ── Role CTA ────────────────────────────────────────────────────────────── */
+
+.dash-role-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: 1.1rem;
+  flex-wrap: wrap;
+}
+
+.dash-role-cta-icon {
+  height: 2.75rem;
+  width: 2.75rem;
+  border-radius: 0.85rem;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-role-cta-text {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.dash-role-cta-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.dash-role-cta-subtitle {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin-top: 0.15rem;
+}
+
+.dash-role-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border: none;
+  cursor: pointer;
+}
+
+/* ── Section header ──────────────────────────────────────────────────────── */
+
+.dash-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.dash-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.dash-section-link {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent, #60a5fa);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* ── Quick actions ───────────────────────────────────────────────────────── */
+
+.dash-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.dash-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.dash-action-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.dash-action-telegram {
+  background: linear-gradient(135deg, #29b6f6, #0288d1);
+}
+
+.dash-action-whatsapp {
+  background: linear-gradient(135deg, #34d058, #1ea952);
+}
+
+.dash-referral-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border-radius: 1rem;
+}
+
+.dash-referral-icon {
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-referral-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-referral-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.dash-referral-code {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  margin-top: 0.1rem;
+}
+
+.dash-referral-code strong {
+  color: var(--foreground);
+}
+
+.dash-referral-copy {
+  height: 2.1rem;
+  width: 2.1rem;
+  border-radius: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── Stats grid ──────────────────────────────────────────────────────────── */
+
+.dash-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.dash-stat-card {
+  padding: 0.9rem;
+  border-radius: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.dash-stat-icon {
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.15rem;
+}
+
+.dash-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.dash-stat-label {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+
+.dash-stat-helper {
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.dash-stat-blue .dash-stat-icon { background: rgba(37, 99, 235, 0.2); color: #60a5fa; }
+.dash-stat-blue .dash-stat-helper { color: #60a5fa; }
+
+.dash-stat-green .dash-stat-icon { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.dash-stat-green .dash-stat-helper { color: #34d399; }
+
+.dash-stat-purple .dash-stat-icon { background: rgba(124, 58, 237, 0.2); color: #a78bfa; }
+.dash-stat-purple .dash-stat-helper { color: #a78bfa; }
+
+.dash-stat-pink .dash-stat-icon { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
+.dash-stat-pink .dash-stat-helper { color: #f472b6; }
+
+/* ── Categories scroll strip ─────────────────────────────────────────────── */
+
+.dash-categories-scroll {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.dash-no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.dash-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.dash-category-chip {
+  flex-shrink: 0;
+  min-width: 6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.85rem 0.75rem;
+  border-radius: 1rem;
+  cursor: pointer;
+  border: none;
+}
+
+.dash-category-chip-icon {
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 0.7rem;
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-category-chip-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.dash-category-chip-rate {
+  font-size: 0.62rem;
+  color: var(--muted-foreground);
+}
+
+/* ── Recent activity ─────────────────────────────────────────────────────── */
+
+.dash-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.dash-activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+}
+
+.dash-activity-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.dash-activity-meta {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  margin-top: 0.1rem;
+}
+
+.dash-activity-amount {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dash-activity-amount.positive { color: #34d399; }
+.dash-activity-amount.negative { color: #f87171; }
+
+/* ── Bottom nav ──────────────────────────────────────────────────────────── */
+
+.dash-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 0 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+.dash-bottom-nav-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  border-radius: 1.5rem;
+  background: #0b0f1a;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.dash-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.dash-nav-group-left {
+  justify-content: flex-end;
+  padding-right: 0.25rem;
+}
+
+.dash-nav-group-right {
+  justify-content: flex-start;
+  padding-left: 0.25rem;
+}
+
+.dash-nav-group-right .dash-nav-item:last-child {
+  margin-left: 0.5rem;
+}
+
+.dash-nav-group-right .dash-nav-item:first-child {
+  margin-left: 0.5rem;
+}
+
+.dash-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.dash-nav-item:hover {
+  color: #cbd5e1;
+}
+
+.dash-nav-item-active {
+  color: #fff;
+}
+
+.dash-nav-fab-slot {
+  justify-self: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-nav-fab {
+  position: relative;
+  top: -1.6rem;
+  height: 3.25rem;
+  width: 3.25rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  border: 4px solid var(--background);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 6px 18px rgba(37, 99, 235, 0.26),
+    0 2px 8px rgba(124, 58, 237, 0.10);
+}
+
+.dash-fab-menu {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  border-radius: 1rem;
+  min-width: 11rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.dash-fab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.7rem;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.dash-fab-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Responsive: tighten up on small phones ─────────────────────────────── */
+
+@media (max-width: 380px) {
+  .dash-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  .dash-hero-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* ── Bottom nav: even content centering + icon spacing ─────────────────── */
+
+.dash-nav-group {
+  gap: 0.4rem;
+}
+
+.dash-nav-group-left {
+  padding-right: 0.6rem;
+}
+
+.dash-nav-group-right {
+  padding-left: 0.6rem;
+}
+
+/* ── Bottom nav: true center fix (fixed FAB column width) ──────────────── */
+
+.dash-bottom-nav-inner {
+  grid-template-columns: 1fr 3.5rem 1fr;
+}
+
+.dash-nav-group-left {
+  padding-right: 0;
+}
+
+.dash-nav-group-right {
+  padding-left: 0;
+}
+
+.dash-nav-fab-slot {
+  width: 3.5rem;
+}
+
+/* ── Bottom nav: push "More" slightly right for edge breathing room ──────── */
+
+.dash-nav-group-right {
+  padding-right: 0.35rem;
+}
+
+/* ── Bottom nav: push "More" slightly right for edge breathing room ──────── */
+
+.dash-nav-group-right {
+  padding-right: 0.35rem;
+}
+
+/* ── Bottom nav: push "More" slightly right for edge breathing room ──────── */
+
+.dash-nav-group-right {
+  padding-right: 0.35rem;
+}
+
+/* ── Kill mobile tap highlight globally ───────────────────────────────────── */
+
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 ```
 

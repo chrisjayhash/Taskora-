@@ -1,23 +1,12 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search,
   RefreshCw,
-  ExternalLink,
   Pickaxe,
   Users,
   Clock3,
   BadgeCheck,
-  Instagram,
-  Facebook,
-  Music2,
-  Youtube,
-  Send,
-  MessageCircle,
-  Linkedin,
-  Globe,
-  Smartphone,
-  Layers,
 } from 'lucide-react'
 import {
   getTasks,
@@ -28,6 +17,9 @@ import {
 import { ApiError } from '../../api/http'
 import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
 import { formatNairaFromKobo } from '../../lib/money'
+import { getPlatformIcon, getBannerUrl, formatDateShort } from '../../lib/task-visuals'
+import { isAuthFailure } from '../../lib/api-errors'
+import { spawnRipple } from '../../lib/ripple'
 import DashboardHeader from '../Dashboard/components/DashboardHeader'
 import BottomNav from '../Dashboard/components/BottomNav'
 import TaskCardSkeleton from './components/TaskCardSkeleton'
@@ -36,98 +28,8 @@ import '../../styles.css'
 import './tasks.css'
 import './tasks-skeleton.css'
 
-function formatDateShort(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })
-}
-
 function uniq<T>(arr: T[]): T[] {
   return Array.from(new Set(arr))
-}
-
-function isAuthFailure(err: unknown) {
-  if (!(err instanceof ApiError)) return false
-  const msg = (err.body?.error ?? err.message ?? '').toLowerCase()
-  return (
-    err.status === 401 ||
-    err.status === 403 ||
-    msg.includes('not authenticated') ||
-    msg.includes('invalid or expired access token') ||
-    msg.includes('invalid refresh') ||
-    msg.includes('expired refresh')
-  )
-}
-
-function getPlatformIcon(categoryName: string) {
-  switch (categoryName) {
-    case 'INSTAGRAM':
-      return Instagram
-    case 'FACEBOOK':
-      return Facebook
-    case 'TIKTOK':
-      return Music2
-    case 'YOUTUBE':
-      return Youtube
-    case 'TELEGRAM':
-      return Send
-    case 'WHATSAPP':
-      return MessageCircle
-    case 'LINKEDIN':
-      return Linkedin
-    case 'WEBSITE':
-      return Globe
-    case 'APP_DOWNLOAD':
-      return Smartphone
-    default:
-      return Layers
-  }
-}
-
-function getBannerUrl(categoryName: string) {
-  const map: Record<string, string> = {
-    INSTAGRAM:
-      'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?auto=format&fit=crop&w=1200&q=70',
-    FACEBOOK:
-      'https://images.unsplash.com/photo-1557683304-673a23048d34?auto=format&fit=crop&w=1200&q=70',
-    TIKTOK:
-      'https://images.unsplash.com/photo-1526498460520-4c246339dccb?auto=format&fit=crop&w=1200&q=70',
-    YOUTUBE:
-      'https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?auto=format&fit=crop&w=1200&q=70',
-    WHATSAPP:
-      'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?auto=format&fit=crop&w=1200&q=70',
-    TELEGRAM:
-      'https://images.unsplash.com/photo-1526948128573-703ee1aeb6fa?auto=format&fit=crop&w=1200&q=70',
-    LINKEDIN:
-      'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=70',
-    WEBSITE:
-      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=70',
-    APP_DOWNLOAD:
-      'https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=1200&q=70',
-  }
-
-  return (
-    map[categoryName] ??
-    'https://images.unsplash.com/photo-1526481280695-3c687fd5432c?auto=format&fit=crop&w=1200&q=70'
-  )
-}
-
-function spawnRipple(e: MouseEvent<HTMLButtonElement>) {
-  const btn = e.currentTarget
-  const rect = btn.getBoundingClientRect()
-  const size = Math.max(rect.width, rect.height)
-  const x = e.clientX - rect.left - size / 2
-  const y = e.clientY - rect.top - size / 2
-
-  const span = document.createElement('span')
-  span.className = 'task-btn-ripple'
-  span.style.width = `${size}px`
-  span.style.height = `${size}px`
-  span.style.left = `${x}px`
-  span.style.top = `${y}px`
-
-  btn.appendChild(span)
-  span.addEventListener('animationend', () => span.remove())
 }
 
 export default function BrowseTasksPage() {
@@ -215,11 +117,6 @@ export default function BrowseTasksPage() {
     })
   }, [tasks, search, category, subcategory])
 
-  function openLink(url: string) {
-    const w = window.open(url, '_blank', 'noopener,noreferrer')
-    if (!w) window.location.href = url
-  }
-
   function handleLogout() {
     clearAuthSession()
     navigate('/')
@@ -235,7 +132,6 @@ export default function BrowseTasksPage() {
       <DashboardHeader user={user} onLogout={handleLogout} />
 
       <div className="tasks-shell">
-        {/* Hero / intro */}
         <section className="tasks-hero glass-strong">
           <div className="tasks-hero-icon glass">
             <Pickaxe className="h-5 w-5" />
@@ -333,7 +229,6 @@ export default function BrowseTasksPage() {
 
         {error && <div className="tasks-error">{error}</div>}
 
-        {/* List */}
         <div className="tasks-list">
           {loading ? (
             <>
@@ -361,7 +256,6 @@ export default function BrowseTasksPage() {
 
                   <div className="task-card-inner">
                     <div className="task-body">
-                      {/* Badges row */}
                       <div className="task-top">
                         <div className="task-badges">
                           <span className="task-badge task-badge-muted">
@@ -383,10 +277,8 @@ export default function BrowseTasksPage() {
                         </div>
                       </div>
 
-                      {/* Description */}
                       <div className="task-desc">{t.job_description}</div>
 
-                      {/* Meta block (extra spacing) */}
                       <div className="task-meta">
                         <div className="task-meta-item">
                           <Users className="task-mini-icon" />
@@ -412,28 +304,13 @@ export default function BrowseTasksPage() {
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="task-actions">
-                        <button
-                          type="button"
-                          className="task-btn task-btn-ghost"
-                          onClick={() => openLink(t.job_link)}
-                        >
-                          <span className="task-btn-inline">
-                            Open <ExternalLink className="h-4 w-4" />
-                          </span>
-                        </button>
-
                         <button
                           type="button"
                           className="task-btn task-btn-primary task-btn-apply"
                           onClick={(e) => {
                             spawnRipple(e)
-                            openLink(t.job_link)
-                            setTimeout(
-                              () => alert('Submit proof flow — coming soon'),
-                              250,
-                            )
+                            navigate(`/tasks/${t.id}`)
                           }}
                         >
                           Apply

@@ -3,14 +3,14 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Smartphone,
-  Briefcase,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react'
 
 type Accent = 'blue' | 'green' | 'purple' | 'pink'
 
 type ActionItem = {
-  id: 'deposit' | 'withdraw' | 'airtime' | 'job'
+  id: 'deposit' | 'withdraw' | 'airtime' | 'submissions'
   title: string
   subtitle: string
   icon: LucideIcon
@@ -42,12 +42,12 @@ const actions: ActionItem[] = [
     accent: 'purple',
   },
   {
-    id: 'job',
-    title: 'Do a job',
-    subtitle: 'Browse tasks',
-    icon: Briefcase,
+    id: 'submissions',
+    title: 'Submissions',
+    subtitle: 'View your history',
+    icon: ListChecks,
     accent: 'pink',
-    href: '/tasks',
+    href: '/submissions',
   },
 ]
 

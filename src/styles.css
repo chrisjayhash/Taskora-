@@ -1490,3 +1490,377 @@ img {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+/* ============================================
+   LIGHT / DARK THEME OVERRIDE
+   Default = LIGHT
+   ============================================ */
+
+:root {
+  --background: #f5f7fa;
+  --surface: #ffffff;
+  --foreground: #1f2937;
+  --muted-foreground: #6b7280;
+
+  --primary: #2563eb;
+  --accent: #3b82f6;
+
+  --border: #e5e7eb;
+
+  --card-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* DARK MODE OVERRIDE */
+
+html[data-theme='dark'] {
+  --background: #0b1120;
+  --surface: #172554;
+  --foreground: #faf8f6;
+  --muted-foreground: #b3bfd6;
+
+  --primary: #2563eb;
+  --accent: #60a5fa;
+
+  --border: rgba(255,255,255,0.1);
+
+  --card-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+/* Light mode adjustments */
+html:not([data-theme='dark']) .btn-glow {
+  box-shadow: none;
+}
+
+
+/* ================================
+   DASHBOARD CARD TEXT CONTRAST FIX
+   ================================ */
+
+/* Make card titles stronger */
+.dash-section-title,
+.dash-action-title,
+.dash-stat-value,
+.dash-role-cta-title,
+.dash-welcome-title {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* Improve subtext readability */
+.dash-action-subtitle,
+.dash-stat-label,
+.dash-role-cta-subtitle,
+.dash-welcome-subtitle {
+  color: #4b5563; /* darker grey for light mode */
+}
+
+/* In dark mode keep original softer tone */
+html[data-theme='dark'] .dash-action-subtitle,
+html[data-theme='dark'] .dash-stat-label,
+html[data-theme='dark'] .dash-role-cta-subtitle,
+html[data-theme='dark'] .dash-welcome-subtitle {
+  color: var(--muted-foreground);
+}
+
+
+/* ============================================
+   FIX BLUE CARD TEXT CONTRAST (LIGHT MODE)
+   ============================================ */
+
+/* Profile bar */
+html:not([data-theme='dark']) .dash-profile-bar {
+  background: linear-gradient(135deg, #4c5d85, #5a6ea0);
+  color: #ffffff;
+}
+
+html:not([data-theme='dark']) .dash-profile-username,
+html:not([data-theme='dark']) .dash-profile-currency {
+  color: #e5e7eb;
+}
+
+/* Role CTA card */
+html:not([data-theme='dark']) .dash-role-cta {
+  background: linear-gradient(135deg, #4c5d85, #5a6ea0);
+  color: #ffffff;
+}
+
+html:not([data-theme='dark']) .dash-role-cta-title,
+html:not([data-theme='dark']) .dash-role-cta-subtitle {
+  color: #f3f4f6;
+}
+
+/* Make button readable */
+html:not([data-theme='dark']) .dash-role-cta-btn {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+html:not([data-theme='dark']) .dash-role-cta-btn:hover {
+  background: #f3f4f6;
+}
+
+
+/* ============================================
+   APPLE-LIKE LIGHT MODE (FLAT + SOFT)
+   ============================================ */
+
+/* Remove blue gradient backgrounds in light mode */
+html:not([data-theme='dark']) .dash-profile-bar,
+html:not([data-theme='dark']) .dash-role-cta,
+html:not([data-theme='dark']) .dash-action-card,
+html:not([data-theme='dark']) .dash-stat-card,
+html:not([data-theme='dark']) .dash-category-chip,
+html:not([data-theme='dark']) .dash-activity-item,
+html:not([data-theme='dark']) .tasks-hero,
+html:not([data-theme='dark']) .task-card {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+/* Make dashboard section headings darker */
+html:not([data-theme='dark']) .dash-section-title {
+  color: #111827;
+}
+
+/* Make action card titles strong */
+html:not([data-theme='dark']) .dash-action-title {
+  color: #111827;
+  font-weight: 700;
+}
+
+/* Make subtext properly visible */
+html:not([data-theme='dark']) .dash-action-subtitle,
+html:not([data-theme='dark']) .dash-stat-label,
+html:not([data-theme='dark']) .dash-role-cta-subtitle,
+html:not([data-theme='dark']) .dash-activity-meta {
+  color: #6b7280;
+}
+
+/* Stats values stronger */
+html:not([data-theme='dark']) .dash-stat-value {
+  color: #111827;
+}
+
+/* Recent activity amount colors preserved */
+html:not([data-theme='dark']) .dash-activity-amount.positive {
+  color: #16a34a;
+}
+
+html:not([data-theme='dark']) .dash-activity-amount.negative {
+  color: #ef4444;
+}
+
+/* Tasks page hero flatten */
+html:not([data-theme='dark']) .tasks-hero {
+  background: #ffffff;
+}
+
+/* Search input flatten */
+html:not([data-theme='dark']) .tasks-search {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+/* Category dropdown flatten */
+html:not([data-theme='dark']) .tasks-categories {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+/* Remove glass blur effect in light mode */
+html:not([data-theme='dark']) .glass,
+html:not([data-theme='dark']) .glass-strong {
+  backdrop-filter: none;
+}
+
+/* Soften accent blues */
+html:not([data-theme='dark']) .text-gradient {
+  color: #2563eb;
+}
+
+/* Reduce radius slightly (modern look) */
+html:not([data-theme='dark']) .dash-action-card,
+html:not([data-theme='dark']) .dash-stat-card,
+html:not([data-theme='dark']) .dash-activity-item,
+html:not([data-theme='dark']) .task-card {
+  border-radius: 10px;
+}
+
+
+/* ============================================
+   PROFILE BAR FLAT LIGHT MODE
+   ============================================ */
+
+html:not([data-theme='dark']) .dash-profile-bar {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .dash-profile-username {
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .dash-profile-currency {
+  color: #6b7280;
+}
+
+
+/* ============================================
+   TASKS PAGE FLAT LIGHT MODE
+   ============================================ */
+
+html:not([data-theme='dark']) .tasks-mini-stat {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .tasks-mini-stat-top {
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .tasks-mini-stat-bottom {
+  color: #6b7280;
+}
+
+html:not([data-theme='dark']) .task-banner-chip {
+  background: rgba(0,0,0,0.05);
+  color: #111827;
+}
+
+
+/* ============================================
+   HEADER — LIGHT MODE SOFT STYLE
+   ============================================ */
+
+html:not([data-theme='dark']) .dash-header-inner {
+  background: #4f5d7a; /* soft muted blue */
+  border: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+html:not([data-theme='dark']) .dash-logo-text {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+html:not([data-theme='dark']) .dash-menu-trigger {
+  color: #ffffff;
+}
+
+
+/* ============================================
+   POPUP MENU — LIGHT MODE CLEAN
+   ============================================ */
+
+html:not([data-theme='dark']) .dash-menu-dropdown {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  padding: 0.75rem;
+}
+
+html:not([data-theme='dark']) .dash-menu-item {
+  color: #111827;
+  font-weight: 500;
+  border-radius: 10px;
+}
+
+html:not([data-theme='dark']) .dash-menu-item:hover {
+  background: #f3f4f6;
+}
+
+html:not([data-theme='dark']) .dash-menu-item-danger {
+  color: #ef4444;
+}
+
+html:not([data-theme='dark']) .dash-menu-sep {
+  background: #e5e7eb;
+}
+
+
+/* ============================================
+   BOTTOM NAV — LIGHT MODE REFINEMENT
+   ============================================ */
+
+/* Slim bottom nav */
+html:not([data-theme='dark']) .dash-bottom-nav-inner {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+}
+
+/* Slim nav items */
+html:not([data-theme='dark']) .dash-nav-item {
+  color: #6b7280;
+}
+
+html:not([data-theme='dark']) .dash-nav-item-active {
+  color: #111827;
+}
+
+/* FAB style */
+html:not([data-theme='dark']) .dash-nav-fab {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 6px 18px rgba(99,102,241,0.4);
+}
+
+/* Floating popup ABOVE FAB */
+html:not([data-theme='dark']) .dash-fab-menu {
+  bottom: calc(100% + 1.2rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Individual floating pill buttons */
+html:not([data-theme='dark']) .dash-fab-menu-item {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.6rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  font-weight: 600;
+  color: #111827;
+  justify-content: center;
+}
+
+html:not([data-theme='dark']) .dash-fab-menu-item:hover {
+  background: #f3f4f6;
+}
+
+
+/* ============================================
+   LIGHT MODE ICON BACKGROUND SOFTENING
+   ============================================ */
+
+/* Dashboard icons */
+html:not([data-theme='dark']) .dash-action-icon,
+html:not([data-theme='dark']) .dash-stat-icon,
+html:not([data-theme='dark']) .dash-category-chip-icon,
+html:not([data-theme='dark']) .dash-hero-icon {
+  background: #eef2ff; /* soft lavender */
+  color: #4f46e5;
+  box-shadow: none;
+}
+
+/* Tasks page icon */
+html:not([data-theme='dark']) .tasks-hero-icon {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* Remove heavy glow in light */
+html:not([data-theme='dark']) .dash-action-blue .dash-action-icon,
+html:not([data-theme='dark']) .dash-action-green .dash-action-icon,
+html:not([data-theme='dark']) .dash-action-purple .dash-action-icon,
+html:not([data-theme='dark']) .dash-action-pink .dash-action-icon {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+

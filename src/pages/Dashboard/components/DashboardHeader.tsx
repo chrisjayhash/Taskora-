@@ -8,7 +8,10 @@ import {
   Settings,
   LifeBuoy,
   LogOut,
+  Sun,
+  Moon,
 } from 'lucide-react'
+import { toggleTheme } from '../../../lib/theme'
 import type { StoredUser } from '../../../lib/auth-storage'
 
 export default function DashboardHeader({
@@ -33,7 +36,6 @@ export default function DashboardHeader({
     <header className="dash-header">
       <div className="dash-header-inner glass">
         <Link to="/dashboard" className="dash-logo">
-          <img src="/icon.png" alt="Taskora" className="dash-logo-icon" />
           <span className="dash-logo-text">Taskora</span>
         </Link>
 
@@ -42,48 +44,41 @@ export default function DashboardHeader({
             type="button"
             className="dash-menu-trigger"
             onClick={() => setOpen((v) => !v)}
-            aria-label="Open menu"
           >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {open ? <X /> : <Menu />}
           </button>
 
           <AnimatePresence>
             {open && (
               <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="dash-menu-dropdown glass-strong"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="dash-menu-dropdown glass"
               >
-                <div className="dash-menu-user">
-                  <div className="dash-menu-avatar">
-                    {user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : 'TK'}
-                  </div>
-                  <div>
-                    <div className="dash-menu-name">
-                      {user ? `${user.firstName} ${user.lastName}` : 'Taskora User'}
-                    </div>
-                    <div className="dash-menu-username">@{user?.username ?? 'guest'}</div>
-                  </div>
-                </div>
-
-                <div className="dash-menu-sep" />
-
-                <button type="button" className="dash-menu-item">
+                <button className="dash-menu-item">
                   <UserIcon className="h-4 w-4" /> Profile
                 </button>
-                <button type="button" className="dash-menu-item">
+
+                <button
+                  className="dash-menu-item"
+                  onClick={toggleTheme}
+                >
+                  <Sun className="h-4 w-4" /> Toggle Theme
+                </button>
+
+                <button className="dash-menu-item">
                   <Settings className="h-4 w-4" /> Settings
                 </button>
-                <button type="button" className="dash-menu-item">
+
+                <button className="dash-menu-item">
                   <LifeBuoy className="h-4 w-4" /> Support
                 </button>
 
                 <div className="dash-menu-sep" />
 
                 <button
-                  type="button"
                   className="dash-menu-item dash-menu-item-danger"
                   onClick={onLogout}
                 >

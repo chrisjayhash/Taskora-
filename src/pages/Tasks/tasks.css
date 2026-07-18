@@ -456,3 +456,45 @@
     height: 8.25rem;
   }
 }
+
+/* ============================================
+   TASK LIST — FLAT LIGHT MODE (less glow/shadow)
+   ============================================ */
+
+html:not([data-theme='dark']) .task-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .tasks-hero {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .tasks-mini-stat {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
+
+/* Banner chip stays readable over colorful images in both themes */
+html:not([data-theme='dark']) .task-banner-chip {
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  border: none;
+}
+
+/* Clean flat Apply button (now full width since Open is gone) */
+html:not([data-theme='dark']) .task-btn-apply {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+html:not([data-theme='dark']) .task-btn-apply:hover {
+  background: #4f46e5;
+}
+
