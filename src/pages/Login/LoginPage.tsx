@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react'
-import '../../App.css'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Chrome } from 'lucide-react'
 import '../../styles.css'
 import { login, ApiError } from '../../api/auth'
 import { setAuthSession } from '../../lib/auth-storage'
@@ -58,95 +57,118 @@ export default function LoginPage() {
     }
   }
 
-  return (
-    <div className="auth-page">
-      <div className="auth-orb-1" />
-      <div className="auth-orb-2" />
+  function handleGoogleSignIn() {
+    console.log('Google Sign In')
+  }
 
-      <div className="auth-container">
+  return (
+    <div className="auth-page-flat">
+      <div className="auth-bg-orbs">
+        <div className="auth-orb-1" />
+        <div className="auth-orb-2" />
+      </div>
+
+      <div className="auth-container-flat">
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="auth-header-flat"
+        >
+          <Link to="/" className="auth-logo-flat">
+            <img src="/icon.png" alt="Taskora" className="auth-logo-icon-flat" />
+            <span className="auth-logo-text-flat">Taskora</span>
+          </Link>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="auth-card glass-strong"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="auth-form-wrapper-flat"
         >
-          <Link to="/" className="auth-logo">
-            <img src="/icon.png" alt="Taskora" className="auth-logo-icon" />
-            <span className="auth-logo-text">Taskora</span>
-          </Link>
-
-          <div className="auth-header">
-            <h1 className="auth-title">
+          <div className="auth-title-section-flat">
+            <h1 className="auth-title-flat">
               Welcome <span className="text-gradient">back</span>
             </h1>
-            <p className="auth-subtitle">
-              Sign in to your Taskora account to continue earning.
+            <p className="auth-subtitle-flat">
+              Sign in to your Taskora account to continue earning
             </p>
+          </div>
+
+          <div className="auth-social-section-flat">
+            <button
+              type="button"
+              className="auth-social-btn-flat"
+              onClick={handleGoogleSignIn}
+              aria-label="Sign in with Google"
+            >
+              <Chrome className="h-5 w-5" />
+            </button>
+            <span className="auth-social-divider-flat">or continue with email</span>
           </div>
 
           <AnimatePresence>
             {apiError && (
               <motion.div
-                initial={{ opacity: 0, y: -6 }}
+                initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
+                exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className="auth-api-error glass"
+                className="auth-error-flat"
               >
-                <span>{apiError}</span>
+                {apiError}
               </motion.div>
             )}
           </AnimatePresence>
 
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
-            <div className="auth-field">
-              <label className="auth-label">Email address</label>
+          <form className="auth-form-flat" onSubmit={handleSubmit} noValidate>
+            <div className="auth-field-flat">
+              <label className="auth-label-flat">Email address</label>
               <div
-                className={`auth-input-wrap glass ${
-                  errors.email ? 'auth-input-error' : ''
+                className={`auth-input-wrapper-flat ${
+                  errors.email ? 'error' : ''
                 }`}
               >
-                <Mail className="h-4 w-4 auth-input-icon" />
+                <Mail className="auth-input-icon-flat" />
                 <input
                   type="email"
-                  className="auth-input"
-                  placeholder="ada@example.com"
+                  className="auth-input-flat"
+                  placeholder="you@example.com"
                   value={form.email}
                   onChange={(e) => update('email', e.target.value)}
+                  autoComplete="email"
                 />
               </div>
               {errors.email && (
-                <span className="auth-error">{errors.email}</span>
+                <span className="auth-error-text-flat">{errors.email}</span>
               )}
             </div>
 
-            <div className="auth-field">
-              <div className="auth-label-row">
-                <label className="auth-label">Password</label>
-                <a
-                  href="#forgot"
-                  className="auth-footer-link"
-                  style={{ fontSize: '0.75rem' }}
-                >
+            <div className="auth-field-flat">
+              <div className="auth-label-row-flat">
+                <label className="auth-label-flat">Password</label>
+                <a href="#forgot" className="auth-forgot-link-flat">
                   Forgot password?
                 </a>
               </div>
               <div
-                className={`auth-input-wrap glass ${
-                  errors.password ? 'auth-input-error' : ''
+                className={`auth-input-wrapper-flat ${
+                  errors.password ? 'error' : ''
                 }`}
               >
-                <Lock className="h-4 w-4 auth-input-icon" />
+                <Lock className="auth-input-icon-flat" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="auth-input"
+                  className="auth-input-flat"
                   placeholder="Enter your password"
                   value={form.password}
                   onChange={(e) => update('password', e.target.value)}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
-                  className="auth-input-toggle"
+                  className="auth-input-toggle-flat"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label="Toggle password visibility"
                 >
@@ -158,28 +180,32 @@ export default function LoginPage() {
                 </button>
               </div>
               {errors.password && (
-                <span className="auth-error">{errors.password}</span>
+                <span className="auth-error-text-flat">{errors.password}</span>
               )}
             </div>
 
             <button
               type="submit"
-              className="auth-submit btn-glow"
+              className="auth-submit-btn-flat"
               disabled={submitting}
             >
               {submitting ? (
-                <Loader2 className="h-4 w-4 auth-spinner" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
               ) : (
                 <>
-                  Sign in <ArrowRight className="h-4 w-4" />
+                  Sign in
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
 
-          <p className="auth-footer-text">
+          <p className="auth-footer-flat">
             Don't have an account?{' '}
-            <Link to="/signup" className="auth-footer-link">
+            <Link to="/signup" className="auth-footer-link-flat">
               Create one free
             </Link>
           </p>

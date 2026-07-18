@@ -9,38 +9,21 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ChevronDown,
-  Briefcase,
-  Megaphone,
-  Check,
   ArrowRight,
   Loader2,
+  Chrome,
+  Check,
 } from 'lucide-react'
-import '../../App.css'
 import '../../styles.css'
 import { signUp, login, ApiError } from '../../api/auth'
 import { setAuthSession } from '../../lib/auth-storage'
 
-// ── Role data ────────────────────────────────────────────────────────────────
-
 const roles = [
-  {
-    value: 'worker',
-    label: 'Worker',
-    description: 'Complete tasks and earn Naira',
-    icon: Briefcase,
-  },
-  {
-    value: 'advertiser',
-    label: 'Advertiser',
-    description: 'Post tasks and grow your brand',
-    icon: Megaphone,
-  },
+  { value: 'worker', label: 'Worker', description: 'Earn by completing tasks' },
+  { value: 'advertiser', label: 'Advertiser', description: 'Post tasks and grow your brand' },
 ]
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function RoleDropdown({
+function RoleDropdownFlat({
   value,
   onChange,
 }: {
@@ -62,67 +45,56 @@ function RoleDropdown({
   }, [])
 
   return (
-    <div className="role-dropdown" ref={ref}>
+    <div className="role-dropdown-flat" ref={ref}>
       <button
         type="button"
-        className={`role-trigger glass ${open ? 'role-trigger-open' : ''}`}
+        className="role-trigger-flat"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
       >
-        <span className="role-trigger-left">
-          <span className="role-icon-wrap">
-            {selected ? (
-              <selected.icon className="h-4 w-4" />
-            ) : (
-              <Briefcase className="h-4 w-4" />
-            )}
+        <span className="role-trigger-left-flat">
+          <span className="role-icon-flat">
+            {selected ? <User className="h-4 w-4" /> : <User className="h-4 w-4" />}
           </span>
-          <span className="role-trigger-text">
-            <span className="role-trigger-label">
-              {selected ? selected.label : 'Select your role'}
-            </span>
-            {selected && (
-              <span className="role-trigger-desc">{selected.description}</span>
-            )}
+          <span className="role-label-flat">
+            {selected ? selected.label : 'Select your role'}
           </span>
         </span>
-        <ChevronDown
-          className="h-4 w-4 role-chevron"
-          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        />
+        <span className="role-chevron-flat">⌄</span>
       </button>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="role-menu glass-strong"
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="role-menu-flat"
           >
-            {roles.map((r) => {
-              const isSelected = r.value === value
-              return (
-                <button
-                  type="button"
-                  key={r.value}
-                  className={`role-option ${isSelected ? 'role-option-selected' : ''}`}
-                  onClick={() => {
-                    onChange(r.value)
-                    setOpen(false)
-                  }}
-                >
-                  <span className="role-icon-wrap">
-                    <r.icon className="h-4 w-4" />
-                  </span>
-                  <span className="role-trigger-text">
-                    <span className="role-trigger-label">{r.label}</span>
-                    <span className="role-trigger-desc">{r.description}</span>
-                  </span>
-                  {isSelected && <Check className="h-4 w-4 role-check" />}
-                </button>
-              )
-            })}
+            {roles.map((r) => (
+              <button
+                type="button"
+                key={r.value}
+                className="role-option-flat"
+                data-selected={r.value === value}
+                onClick={() => {
+                  onChange(r.value)
+                  setOpen(false)
+                }}
+              >
+                <span className="role-icon-flat">
+                  <User className="h-4 w-4" />
+                </span>
+                <span>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>{r.label}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--muted-foreground)' }}>
+                    {r.description}
+                  </div>
+                </span>
+                {r.value === value && <Check className="role-check-flat h-4 w-4" />}
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -130,7 +102,7 @@ function RoleDropdown({
   )
 }
 
-function PasswordStrength({ password }: { password: string }) {
+function PasswordStrengthFlat({ password }: { password: string }) {
   const getStrength = () => {
     let score = 0
     if (password.length >= 8) score++
@@ -139,28 +111,28 @@ function PasswordStrength({ password }: { password: string }) {
     if (/[^A-Za-z0-9]/.test(password)) score++
     return score
   }
+
   const strength = getStrength()
   const labels = ['Weak', 'Fair', 'Good', 'Strong']
+  const strengthClass = ['weak', 'fair', 'good', 'strong'][Math.max(strength - 1, 0)]
   const label = password ? labels[Math.max(strength - 1, 0)] : ''
 
   if (!password) return null
 
   return (
-    <div className="password-strength">
-      <div className="password-strength-bars">
+    <div className="password-strength-flat">
+      <div className="password-strength-bars-flat">
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
-            className={`strength-bar ${i < strength ? `strength-bar-${strength}` : ''}`}
+            className={`strength-bar-flat ${i < strength ? strengthClass : ''}`}
           />
         ))}
       </div>
-      <span className="password-strength-label">{label}</span>
+      <span className="password-strength-label-flat">{label}</span>
     </div>
   )
 }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SignUpPage() {
   const navigate = useNavigate()
@@ -217,7 +189,6 @@ export default function SignUpPage() {
 
     setSubmitting(true)
     try {
-      // 1. Register the account
       await signUp({
         firstName: form.firstName,
         lastName: form.lastName,
@@ -228,9 +199,6 @@ export default function SignUpPage() {
         password: form.password,
       })
 
-      // 2. /auth/register doesn't return tokens, so immediately log the
-      //    new user in to get an access/refresh token pair and land them
-      //    straight in the dashboard.
       const loginRes = await login({
         email: form.email,
         password: form.password,
@@ -248,250 +216,243 @@ export default function SignUpPage() {
     }
   }
 
-  return (
-    <div className="auth-page">
-      <div className="auth-orb-1" />
-      <div className="auth-orb-2" />
+  function handleGoogleSignUp() {
+    console.log('Google Sign Up')
+  }
 
-      <div className="auth-container">
+  return (
+    <div className="auth-page-flat">
+      <div className="auth-bg-orbs">
+        <div className="auth-orb-1" />
+        <div className="auth-orb-2" />
+      </div>
+
+      <div className="auth-container-flat">
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="auth-header-flat"
+        >
+          <Link to="/" className="auth-logo-flat">
+            <img src="/icon.png" alt="Taskora" className="auth-logo-icon-flat" />
+            <span className="auth-logo-text-flat">Taskora</span>
+          </Link>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="auth-card glass-strong"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="auth-form-wrapper-flat"
         >
-          <Link to="/" className="auth-logo">
-            <img src="/icon.png" alt="Taskora" className="auth-logo-icon" />
-            <span className="auth-logo-text">Taskora</span>
-          </Link>
-
-          <div className="auth-header">
-            <h1 className="auth-title">
+          <div className="auth-title-section-flat">
+            <h1 className="auth-title-flat">
               Create your <span className="text-gradient">free account</span>
             </h1>
-            <p className="auth-subtitle">
-              Join Taskora and start earning or growing your brand today.
+            <p className="auth-subtitle-flat">
+              Join Taskora and start earning or growing your brand today
             </p>
+          </div>
+
+          <div className="auth-social-section-flat">
+            <button
+              type="button"
+              className="auth-social-btn-flat"
+              onClick={handleGoogleSignUp}
+              aria-label="Sign up with Google"
+            >
+              <Chrome className="h-5 w-5" />
+            </button>
+            <span className="auth-social-divider-flat">or continue with email</span>
           </div>
 
           <AnimatePresence>
             {apiError && (
               <motion.div
-                initial={{ opacity: 0, y: -6 }}
+                initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
+                exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className="auth-api-error glass"
+                className="auth-error-flat"
               >
-                <span>{apiError}</span>
+                {apiError}
               </motion.div>
             )}
           </AnimatePresence>
 
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
-            <div className="auth-row">
-              <div className="auth-field">
-                <label className="auth-label">First name</label>
-                <div
-                  className={`auth-input-wrap glass ${
-                    errors.firstName ? 'auth-input-error' : ''
-                  }`}
-                >
-                  <User className="h-4 w-4 auth-input-icon" />
+          <form className="auth-form-flat" onSubmit={handleSubmit} noValidate>
+            <div className="auth-row-flat">
+              <div className="auth-field-flat">
+                <label className="auth-label-flat">First name</label>
+                <div className={`auth-input-wrapper-flat ${errors.firstName ? 'error' : ''}`}>
+                  <User className="auth-input-icon-flat" />
                   <input
                     type="text"
-                    className="auth-input"
+                    className="auth-input-flat"
                     placeholder="Ada"
                     value={form.firstName}
                     onChange={(e) => update('firstName', e.target.value)}
                   />
                 </div>
                 {errors.firstName && (
-                  <span className="auth-error">{errors.firstName}</span>
+                  <span className="auth-error-text-flat">{errors.firstName}</span>
                 )}
               </div>
 
-              <div className="auth-field">
-                <label className="auth-label">Last name</label>
-                <div
-                  className={`auth-input-wrap glass ${
-                    errors.lastName ? 'auth-input-error' : ''
-                  }`}
-                >
-                  <User className="h-4 w-4 auth-input-icon" />
+              <div className="auth-field-flat">
+                <label className="auth-label-flat">Last name</label>
+                <div className={`auth-input-wrapper-flat ${errors.lastName ? 'error' : ''}`}>
+                  <User className="auth-input-icon-flat" />
                   <input
                     type="text"
-                    className="auth-input"
+                    className="auth-input-flat"
                     placeholder="Okafor"
                     value={form.lastName}
                     onChange={(e) => update('lastName', e.target.value)}
                   />
                 </div>
                 {errors.lastName && (
-                  <span className="auth-error">{errors.lastName}</span>
+                  <span className="auth-error-text-flat">{errors.lastName}</span>
                 )}
               </div>
             </div>
 
-            <div className="auth-field">
-              <label className="auth-label">Username</label>
-              <div
-                className={`auth-input-wrap glass ${
-                  errors.username ? 'auth-input-error' : ''
-                }`}
-              >
-                <AtSign className="h-4 w-4 auth-input-icon" />
+            <div className="auth-field-flat">
+              <label className="auth-label-flat">Username</label>
+              <div className={`auth-input-wrapper-flat ${errors.username ? 'error' : ''}`}>
+                <AtSign className="auth-input-icon-flat" />
                 <input
                   type="text"
-                  className="auth-input"
+                  className="auth-input-flat"
                   placeholder="ada_okafor"
                   value={form.username}
                   onChange={(e) => update('username', e.target.value)}
                 />
               </div>
               {errors.username && (
-                <span className="auth-error">{errors.username}</span>
+                <span className="auth-error-text-flat">{errors.username}</span>
               )}
             </div>
 
-            <div className="auth-field">
-              <label className="auth-label">Email address</label>
-              <div
-                className={`auth-input-wrap glass ${
-                  errors.email ? 'auth-input-error' : ''
-                }`}
-              >
-                <Mail className="h-4 w-4 auth-input-icon" />
+            <div className="auth-field-flat">
+              <label className="auth-label-flat">Email address</label>
+              <div className={`auth-input-wrapper-flat ${errors.email ? 'error' : ''}`}>
+                <Mail className="auth-input-icon-flat" />
                 <input
                   type="email"
-                  className="auth-input"
-                  placeholder="ada@example.com"
+                  className="auth-input-flat"
+                  placeholder="you@example.com"
                   value={form.email}
                   onChange={(e) => update('email', e.target.value)}
+                  autoComplete="email"
                 />
               </div>
               {errors.email && (
-                <span className="auth-error">{errors.email}</span>
+                <span className="auth-error-text-flat">{errors.email}</span>
               )}
             </div>
 
-            <div className="auth-field">
-              <label className="auth-label">Phone number</label>
-              <div
-                className={`auth-input-wrap glass ${
-                  errors.phone ? 'auth-input-error' : ''
-                }`}
-              >
-                <Phone className="h-4 w-4 auth-input-icon" />
+            <div className="auth-field-flat">
+              <label className="auth-label-flat">Phone number</label>
+              <div className={`auth-input-wrapper-flat ${errors.phone ? 'error' : ''}`}>
+                <Phone className="auth-input-icon-flat" />
                 <input
                   type="tel"
-                  className="auth-input"
+                  className="auth-input-flat"
                   placeholder="+234 801 234 5678"
                   value={form.phone}
                   onChange={(e) => update('phone', e.target.value)}
                 />
               </div>
               {errors.phone && (
-                <span className="auth-error">{errors.phone}</span>
+                <span className="auth-error-text-flat">{errors.phone}</span>
               )}
             </div>
 
-            <div className="auth-field">
-              <label className="auth-label">I want to</label>
-              <RoleDropdown
-                value={form.role}
-                onChange={(v) => update('role', v)}
-              />
+            <div className="auth-field-flat">
+              <label className="auth-label-flat">I want to</label>
+              <RoleDropdownFlat value={form.role} onChange={(v) => update('role', v)} />
               {errors.role && (
-                <span className="auth-error">{errors.role}</span>
+                <span className="auth-error-text-flat">{errors.role}</span>
               )}
             </div>
 
-            <div className="auth-field">
-              <label className="auth-label">Password</label>
-              <div
-                className={`auth-input-wrap glass ${
-                  errors.password ? 'auth-input-error' : ''
-                }`}
-              >
-                <Lock className="h-4 w-4 auth-input-icon" />
+            <div className="auth-field-flat">
+              <label className="auth-label-flat">Password</label>
+              <div className={`auth-input-wrapper-flat ${errors.password ? 'error' : ''}`}>
+                <Lock className="auth-input-icon-flat" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="auth-input"
+                  className="auth-input-flat"
                   placeholder="Create a strong password"
                   value={form.password}
                   onChange={(e) => update('password', e.target.value)}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
-                  className="auth-input-toggle"
+                  className="auth-input-toggle-flat"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label="Toggle password visibility"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <PasswordStrength password={form.password} />
+              <PasswordStrengthFlat password={form.password} />
               {errors.password && (
-                <span className="auth-error">{errors.password}</span>
+                <span className="auth-error-text-flat">{errors.password}</span>
               )}
             </div>
 
-            <div className="auth-field">
-              <label className="auth-label">Confirm password</label>
-              <div
-                className={`auth-input-wrap glass ${
-                  errors.confirmPassword ? 'auth-input-error' : ''
-                }`}
-              >
-                <Lock className="h-4 w-4 auth-input-icon" />
+            <div className="auth-field-flat">
+              <label className="auth-label-flat">Confirm password</label>
+              <div className={`auth-input-wrapper-flat ${errors.confirmPassword ? 'error' : ''}`}>
+                <Lock className="auth-input-icon-flat" />
                 <input
                   type={showConfirm ? 'text' : 'password'}
-                  className="auth-input"
+                  className="auth-input-flat"
                   placeholder="Re-enter your password"
                   value={form.confirmPassword}
                   onChange={(e) => update('confirmPassword', e.target.value)}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
-                  className="auth-input-toggle"
+                  className="auth-input-toggle-flat"
                   onClick={() => setShowConfirm((v) => !v)}
                   aria-label="Toggle password visibility"
                 >
-                  {showConfirm ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               {errors.confirmPassword && (
-                <span className="auth-error">{errors.confirmPassword}</span>
+                <span className="auth-error-text-flat">{errors.confirmPassword}</span>
               )}
             </div>
 
             <button
               type="submit"
-              className="auth-submit btn-glow"
+              className="auth-submit-btn-flat"
               disabled={submitting}
             >
               {submitting ? (
-                <Loader2 className="h-4 w-4 auth-spinner" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating account...
+                </>
               ) : (
                 <>
-                  Create free account <ArrowRight className="h-4 w-4" />
+                  Create free account
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
 
-          <p className="auth-footer-text">
+          <p className="auth-footer-flat">
             Already have an account?{' '}
-            <Link to="/login" className="auth-footer-link">
+            <Link to="/login" className="auth-footer-link-flat">
               Sign in
             </Link>
           </p>

@@ -1,0 +1,1073 @@
+  job_description: string
+  worker_earn_kobo: string
+  category_name: string
+  subcategory_name: string
+}
+
+export interface SubmissionsResponse {
+  submissions: SubmissionHistoryItem[]
+}
+
+function isExpiredTokenError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = err.body?.error ?? ''
+  return msg.toLowerCase().includes('invalid or expired access token') || err.status === 401
+}
+
+async function authedGet<T>(path: string): Promise<T> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    return await apiFetch<T>(path, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${access}` },
+    })
+  } catch (err) {
+    if (!isExpiredTokenError(err)) throw err
+
+    const refresh = getRefreshToken()
+    if (!refresh) throw err
+
+    const refreshed = await refreshAccessToken(refresh)
+    setAccessToken(refreshed.accessToken)
+
+    return await apiFetch<T>(path, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+    })
+  }
+}
+
+async function authedPost<T>(path: string, body: unknown): Promise<T> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    return await apiFetch<T>(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${access}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    })
+  } catch (err) {
+    if (!isExpiredTokenError(err)) throw err
+
+    const refresh = getRefreshToken()
+    if (!refresh) throw err
+
+    const refreshed = await refreshAccessToken(refresh)
+    setAccessToken(refreshed.accessToken)
+
+    return await apiFetch<T>(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${refreshed.accessToken}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    })
+  }
+}
+
+/* ✅ KEEP ALL ORIGINAL EXPORTS */
+
+export function getTasks(): Promise<TasksResponse> {
+  return authedGet<TasksResponse>('/tasks')
+}
+
+export function getTaskCategories(): Promise<TaskCategoriesResponse> {
+  return authedGet<TaskCategoriesResponse>('/tasks/categories')
+}
+
+export function getTaskById(id: string): Promise<TaskDetailResponse> {
+  return authedGet<TaskDetailResponse>(`/tasks/${id}`)
+}
+
+export function submitTaskProof(id: string, proofValue?: string): Promise<SubmitTaskProofResponse> {
+  const body = proofValue !== undefined ? { proofValue } : {}
+  return authedPost<SubmitTaskProofResponse>(`/tasks/${id}/submit`, body)
+}
+
+export function getMySubmissions(): Promise<SubmissionsResponse> {
+  return authedGet<SubmissionsResponse>('/submissions/mine')
+}
+```
+
+---
+
+### FILE PATH: src/api/wallet.ts
+```ts
+import { apiFetch, ApiError } from './http'
+import { refreshAccessToken } from './auth'
+import {
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+} from '../lib/auth-storage'
+
+export interface WalletDto {
+  id: string
+  balance: string
+  currency: string
+  updated_at: string
+}
+
+export interface WalletResponse {
+  wallet: WalletDto
+}
+
+function isExpiredTokenError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = err.body?.error ?? ''
+  return msg.toLowerCase().includes('invalid or expired access token') || err.status === 401
+}
+
+export async function getWallet(): Promise<WalletResponse> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    return await apiFetch<WalletResponse>('/wallet', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${access}`,
+      },
+    })
+  } catch (err) {
+    if (isExpiredTokenError(err)) {
+      const refresh = getRefreshToken()
+      if (!refresh) throw err
+
+      const refreshed = await refreshAccessToken(refresh)
+      setAccessToken(refreshed.accessToken)
+
+      return await apiFetch<WalletResponse>('/wallet', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${refreshed.accessToken}`,
+        },
+      })
+    }
+
+    throw err
+  }
+}
+```
+
+---
+
+### FILE PATH: src/context/AuthContext.tsx
+```tsx
+```
+
+---
+
+### FILE PATH: src/hooks/use-mobile.tsx
+```tsx
+import * as React from "react";
+
+const MOBILE_BREAKPOINT = 768;
+
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);
+
+  React.useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const onChange = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+    mql.addEventListener("change", onChange);
+    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  return !!isMobile;
+}
+```
+
+---
+
+### FILE PATH: src/lib/api-errors.ts
+```ts
+import { ApiError } from '../api/http'
+
+/**
+ * Broad check used for page-level data loading (GET requests).
+ * Treats 401 and 403 as "you shouldn't be here" -> force logout.
+ */
+export function isAuthFailure(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const msg = (err.body?.error ?? err.message ?? '').toLowerCase()
+  return (
+    err.status === 401 ||
+    err.status === 403 ||
+    msg.includes('not authenticated') ||
+    msg.includes('invalid or expired access token') ||
+    msg.includes('invalid refresh') ||
+    msg.includes('expired refresh')
+  )
+}
+
+/**
+ * Narrow check used for actions where a 403 can mean a legitimate
+ * business rule violation (e.g. "you can't submit to your own task")
+ * rather than an expired/invalid session. Only forces logout on a
+ * real token problem.
+ */
+export function isSessionExpired(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  if (err.status === 401) return true
+  const msg = (err.body?.error ?? err.message ?? '').toLowerCase()
+  return (
+    msg.includes('not authenticated') ||
+    msg.includes('invalid or expired access token') ||
+    msg.includes('invalid refresh') ||
+    msg.includes('expired refresh')
+  )
+}
+```
+
+---
+
+### FILE PATH: src/lib/auth-storage.ts
+```ts
+const ACCESS_TOKEN_KEY = 'taskora_access_token'
+const REFRESH_TOKEN_KEY = 'taskora_refresh_token'
+const USER_KEY = 'taskora_user'
+
+export interface StoredWallet {
+  id: string
+  balanceKobo: string
+  currency: string
+}
+
+export interface StoredUser {
+  id: string
+  firstName: string
+  lastName: string
+  username: string
+  email: string
+  role: string
+
+  // Optional fields populated by /me
+  phoneNumber?: string
+  referralCode?: string
+  isVerified?: boolean
+  referralCount?: number
+  wallet?: StoredWallet
+}
+
+// ── Write ────────────────────────────────────────────────────────────────────
+
+export function setAuthSession(
+  accessToken: string,
+  refreshToken: string,
+  user: StoredUser,
+) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function setAccessToken(accessToken: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+}
+
+export function setRefreshToken(refreshToken: string) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+}
+
+export function setStoredUser(user: StoredUser) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function clearAuthSession() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+}
+
+// ── Read ─────────────────────────────────────────────────────────────────────
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+export function getStoredUser(): StoredUser | null {
+  const raw = localStorage.getItem(USER_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as StoredUser
+  } catch {
+    return null
+  }
+}
+
+// NOTE: this checks for token presence (not expiry). Expiry is handled
+// by API calls (refresh on 401/expired message).
+export function isAuthenticated(): boolean {
+  return !!getAccessToken()
+}
+
+export function getAuthHeader(): Record<string, string> {
+  const token = getAccessToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+```
+
+---
+
+### FILE PATH: src/lib/dashboard-cache.ts
+```ts
+const WALLET_CACHE_KEY = 'taskora_wallet_cache_v1'
+
+export interface WalletCache {
+  balanceText: string
+  currency: string
+  updatedAt: string
+  cachedAt: string
+}
+
+export function getWalletCache(): WalletCache | null {
+  const raw = localStorage.getItem(WALLET_CACHE_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as WalletCache
+  } catch {
+    return null
+  }
+}
+
+export function setWalletCache(next: Omit<WalletCache, 'cachedAt'>) {
+  const payload: WalletCache = {
+    ...next,
+    cachedAt: new Date().toISOString(),
+  }
+  localStorage.setItem(WALLET_CACHE_KEY, JSON.stringify(payload))
+}
+
+export function clearWalletCache() {
+  localStorage.removeItem(WALLET_CACHE_KEY)
+}
+```
+
+---
+
+### FILE PATH: src/lib/dashboard-mock.ts
+```ts
+import {
+  Instagram,
+  Music2,
+  Facebook,
+  Youtube,
+  MessageCircle,
+  Send,
+  Linkedin,
+  Globe,
+  Smartphone,
+  Wallet,
+  CheckCircle2,
+  ListChecks,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
+
+// ── Stats overview ───────────────────────────────────────────────────────────
+
+export interface StatCard {
+  id: string
+  label: string
+  value: string
+  helper: string
+  icon: LucideIcon
+  accent: 'blue' | 'green' | 'purple' | 'pink'
+}
+
+export const statCards: StatCard[] = [
+  {
+    id: 'balance',
+    label: 'Wallet balance',
+    value: '₦28,450',
+    helper: '+₦4,200 this week',
+    icon: Wallet,
+    accent: 'blue',
+  },
+  {
+    id: 'completed',
+    label: 'Tasks completed',
+    value: '184',
+    helper: '12 today',
+    icon: CheckCircle2,
+    accent: 'green',
+  },
+  {
+    id: 'active',
+    label: 'Active tasks',
+    value: '6',
+    helper: '2 awaiting review',
+    icon: ListChecks,
+    accent: 'purple',
+  },
+  {
+    id: 'referrals',
+    label: 'Referrals',
+    value: '9',
+    helper: '₦900 earned',
+    icon: Users,
+    accent: 'pink',
+  },
+]
+
+// ── Task categories (quick browse) ──────────────────────────────────────────
+
+export interface TaskCategoryQuick {
+  name: string
+  icon: LucideIcon
+  rate: string
+}
+
+export const quickCategories: TaskCategoryQuick[] = [
+  { name: 'Instagram', icon: Instagram, rate: '₦8 – ₦25' },
+  { name: 'TikTok', icon: Music2, rate: '₦10 – ₦30' },
+  { name: 'Facebook', icon: Facebook, rate: '₦8 – ₦20' },
+  { name: 'YouTube', icon: Youtube, rate: '₦15 – ₦50' },
+  { name: 'WhatsApp', icon: MessageCircle, rate: '₦5 – ₦15' },
+  { name: 'Telegram', icon: Send, rate: '₦8 – ₦20' },
+  { name: 'LinkedIn', icon: Linkedin, rate: '₦12 – ₦30' },
+  { name: 'Website', icon: Globe, rate: '₦5 – ₦12' },
+  { name: 'App Install', icon: Smartphone, rate: '₦40 – ₦150' },
+]
+
+// ── Recent activity ──────────────────────────────────────────────────────────
+
+export interface ActivityItem {
+  id: string
+  title: string
+  meta: string
+  amount: string
+  positive: boolean
+}
+
+export const recentActivity: ActivityItem[] = [
+  {
+    id: '1',
+    title: 'Instagram follow — @brandhq',
+    meta: 'Approved · 2m ago',
+    amount: '+₦25',
+    positive: true,
+  },
+  {
+    id: '2',
+    title: 'TikTok view (60s)',
+    meta: 'Approved · 18m ago',
+    amount: '+₦18',
+    positive: true,
+  },
+  {
+    id: '3',
+    title: 'App download — GTBank',
+    meta: 'Pending review · 1h ago',
+    amount: '+₦150',
+    positive: true,
+  },
+  {
+    id: '4',
+    title: 'Withdrawal to GTBank ****2291',
+    meta: 'Completed · Yesterday',
+    amount: '-₦5,000',
+    positive: false,
+  },
+  {
+    id: '5',
+    title: 'Website visit — SME Naija',
+    meta: 'Approved · Yesterday',
+    amount: '+₦8',
+    positive: true,
+  },
+]
+
+// ── Announcement marquee ─────────────────────────────────────────────────────
+
+export const announcements: string[] = [
+  'Post real tasks, pay fair rates, get real results.',
+  'Withdrawals now settle in minutes via Paystack.',
+  'Refer a friend and earn ₦100 instantly.',
+  'New: LinkedIn engagement tasks now live.',
+]
+```
+
+---
+
+### FILE PATH: src/lib/links.ts
+```ts
+export function openExternalLink(url: string) {
+  const w = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!w) window.location.href = url
+}
+```
+
+---
+
+### FILE PATH: src/lib/lovable-error-reporting.ts
+```ts
+type LovableErrorOptions = {
+  mechanism?: "manual" | "onerror" | "unhandledrejection" | "react_error_boundary";
+  handled?: boolean;
+  severity?: "error" | "warning" | "info";
+};
+
+type LovableEvents = {
+  captureException?: (
+    error: unknown,
+    context?: Record<string, unknown>,
+    options?: LovableErrorOptions,
+  ) => void;
+};
+
+declare global {
+  interface Window {
+    __lovableEvents?: LovableEvents;
+    __lovableReportRuntimeError?: (payload: {
+      message: string;
+      stack?: string;
+      filename?: string;
+    }) => void;
+  }
+}
+
+export function reportLovableError(error: unknown, context: Record<string, unknown> = {}) {
+  if (typeof window === "undefined") return;
+  window.__lovableEvents?.captureException?.(
+    error,
+    {
+      source: "react_error_boundary",
+      route: window.location.pathname,
+      ...context,
+    },
+    {
+      mechanism: "react_error_boundary",
+      handled: false,
+      severity: "error",
+    },
+  );
+  // Prod React does not rethrow boundary-caught errors to window.onerror, so the
+  // editor's telemetry never sees them. Forward to lovable.js's reporting hook,
+  // which is present only inside the editor preview.
+  // Loaders and server fns commonly throw a raw Response; String(it) is the
+  // opaque "[object Response]", so pull out the status and URL instead.
+  const message =
+    error instanceof Response
+      ? `Response ${error.status}${error.url ? ` at ${error.url}` : ""}`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  window.__lovableReportRuntimeError?.({
+    message,
+    stack: error instanceof Error ? error.stack : undefined,
+    filename: window.location.pathname,
+  });
+}
+```
+
+---
+
+### FILE PATH: src/lib/money.ts
+```ts
+export function formatNairaFromKobo(balanceKobo: string | number): string {
+  const koboNum =
+    typeof balanceKobo === 'string' ? Number(balanceKobo) : balanceKobo
+
+  if (!Number.isFinite(koboNum)) return '₦0'
+
+  const naira = koboNum / 100
+  const hasDecimals = Math.round(naira * 100) % 100 !== 0
+
+  const formatted = new Intl.NumberFormat('en-NG', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(naira)
+
+  return `₦${formatted}`
+}
+
+/**
+ * Formats a NAIRA amount already in naira units (as returned by /wallet.balance).
+ * Examples:
+ *  "0" -> ₦0
+ *  "2500" -> ₦2,500
+ *  "2500.5" -> ₦2,500.50
+ */
+export function formatNaira(amountNaira: string | number): string {
+  const num = typeof amountNaira === 'string' ? Number(amountNaira) : amountNaira
+  if (!Number.isFinite(num)) return '₦0'
+
+  const hasDecimals = Math.round(num * 100) % 100 !== 0
+  const formatted = new Intl.NumberFormat('en-NG', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(num)
+
+  return `₦${formatted}`
+}
+```
+
+---
+
+### FILE PATH: src/lib/ripple.ts
+```ts
+import type { MouseEvent } from 'react'
+
+export function spawnRipple(
+  e: MouseEvent<HTMLButtonElement>,
+  className = 'task-btn-ripple',
+) {
+  const btn = e.currentTarget
+  const rect = btn.getBoundingClientRect()
+  const size = Math.max(rect.width, rect.height)
+  const x = e.clientX - rect.left - size / 2
+  const y = e.clientY - rect.top - size / 2
+
+  const span = document.createElement('span')
+  span.className = className
+  span.style.width = `${size}px`
+  span.style.height = `${size}px`
+  span.style.left = `${x}px`
+  span.style.top = `${y}px`
+
+  btn.appendChild(span)
+  span.addEventListener('animationend', () => span.remove())
+}
+```
+
+---
+
+### FILE PATH: src/lib/supabase.ts
+```ts
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    '[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. ' +
+      'Screenshot uploads will fail until these are set in .env',
+  )
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+export const PROOF_UPLOADS_BUCKET =
+  (import.meta.env.VITE_SUPABASE_PROOF_BUCKET as string) || 'Taskora_proff_uploads'
+```
+
+---
+
+### FILE PATH: src/lib/task-visuals.ts
+```ts
+import {
+  Instagram,
+  Facebook,
+  Music2,
+  Youtube,
+  Send,
+  MessageCircle,
+  Linkedin,
+  Globe,
+  Smartphone,
+  Layers,
+  type LucideIcon,
+} from 'lucide-react'
+
+export function getPlatformIcon(categoryName: string): LucideIcon {
+  switch (categoryName) {
+    case 'INSTAGRAM':
+      return Instagram
+    case 'FACEBOOK':
+      return Facebook
+    case 'TIKTOK':
+      return Music2
+    case 'YOUTUBE':
+      return Youtube
+    case 'TELEGRAM':
+      return Send
+    case 'WHATSAPP':
+      return MessageCircle
+    case 'LINKEDIN':
+      return Linkedin
+    case 'WEBSITE':
+      return Globe
+    case 'APP_DOWNLOAD':
+      return Smartphone
+    default:
+      return Layers
+  }
+}
+
+export function getBannerUrl(categoryName: string): string {
+  const map: Record<string, string> = {
+    INSTAGRAM:
+      'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?auto=format&fit=crop&w=1200&q=70',
+    FACEBOOK:
+      'https://images.unsplash.com/photo-1557683304-673a23048d34?auto=format&fit=crop&w=1200&q=70',
+    TIKTOK:
+      'https://images.unsplash.com/photo-1526498460520-4c246339dccb?auto=format&fit=crop&w=1200&q=70',
+    YOUTUBE:
+      'https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?auto=format&fit=crop&w=1200&q=70',
+    WHATSAPP:
+      'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?auto=format&fit=crop&w=1200&q=70',
+    TELEGRAM:
+      'https://images.unsplash.com/photo-1526948128573-703ee1aeb6fa?auto=format&fit=crop&w=1200&q=70',
+    LINKEDIN:
+      'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=70',
+    WEBSITE:
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=70',
+    APP_DOWNLOAD:
+      'https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=1200&q=70',
+  }
+
+  return (
+    map[categoryName] ??
+    'https://images.unsplash.com/photo-1526481280695-3c687fd5432c?auto=format&fit=crop&w=1200&q=70'
+  )
+}
+
+export function formatDateShort(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })
+}
+
+export function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(diffMs)) return '—'
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+```
+
+---
+
+### FILE PATH: src/lib/theme.ts
+```ts
+export function initTheme() {
+  const saved = localStorage.getItem('taskora_theme')
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark')
+  } else {
+    document.documentElement.removeAttribute('data-theme')
+  }
+}
+
+export function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme')
+  if (current === 'dark') {
+    document.documentElement.removeAttribute('data-theme')
+    localStorage.setItem('taskora_theme', 'light')
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark')
+    localStorage.setItem('taskora_theme', 'dark')
+  }
+}
+```
+
+---
+
+### FILE PATH: src/lib/upload-proof.ts
+```ts
+import { supabase, PROOF_UPLOADS_BUCKET } from './supabase'
+
+function extensionFromFile(file: File): string {
+  const fromName = file.name.split('.').pop()
+  if (fromName && fromName.length <= 5) return fromName.toLowerCase()
+  const fromType = file.type.split('/').pop()
+  return fromType ? fromType.toLowerCase() : 'jpg'
+}
+
+export async function uploadProofScreenshot(
+  file: File,
+  taskId: string,
+  userId?: string,
+): Promise<string> {
+  const ext = extensionFromFile(file)
+  const path = `${userId ?? 'anon'}/${taskId}-${Date.now()}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(PROOF_UPLOADS_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || 'image/jpeg',
+    })
+
+  if (uploadError) {
+    console.error('[Supabase] upload error:', uploadError)
+    throw new Error(uploadError.message || 'Failed to upload screenshot.')
+  }
+
+  const { data } = supabase.storage.from(PROOF_UPLOADS_BUCKET).getPublicUrl(path)
+
+  if (!data?.publicUrl) {
+    throw new Error('Failed to get the uploaded screenshot URL.')
+  }
+
+  return data.publicUrl
+}
+```
+
+---
+
+### FILE PATH: src/lib/utils.ts
+```ts
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+---
+
+### FILE PATH: src/main.tsx
+```tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './styles.css'
+import { initTheme } from './lib/theme'
+
+initTheme()
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/DashboardPage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  clearAuthSession,
+  getStoredUser,
+  type StoredUser,
+} from '../../lib/auth-storage'
+import { announcements } from '../../lib/dashboard-mock'
+import { getMe } from '../../api/me'
+import { getWallet } from '../../api/wallet'
+import { formatNaira } from '../../lib/money'
+import { getWalletCache, setWalletCache } from '../../lib/dashboard-cache'
+
+import DashboardHeader from './components/DashboardHeader'
+import DashboardHero from './components/DashboardHero'
+import ProfileBar from './components/ProfileBar'
+import AnnouncementBanner from './components/AnnouncementBanner'
+import WelcomeSection from './components/WelcomeSection'
+import RoleCTA from './components/RoleCTA'
+import QuickActions from './components/QuickActions'
+import ActionGrid from './components/ActionGrid'
+import StatsGrid from './components/StatsGrid'
+import TaskCategoriesStrip from './components/TaskCategoriesStrip'
+import RecentActivity from './components/RecentActivity'
+import BottomNav from './components/BottomNav'
+
+import '../../App.css'
+import '../../styles.css'
+import './dashboard-actions.css'
+import './profilebar-overrides.css'
+
+export default function DashboardPage() {
+  const navigate = useNavigate()
+
+  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser())
+  const [loading, setLoading] = useState(false)
+  const [refreshingBalance, setRefreshingBalance] = useState(false)
+
+  const cachedWallet = useMemo(() => getWalletCache(), [])
+  const [balanceText, setBalanceText] = useState<string>(() => cachedWallet?.balanceText ?? '₦0')
+
+  const notificationCount = 2
+
+  // Hard caching:
+  // - On mount: only fetch /me if we don't already have a stored user.
+  // - On mount: only fetch /wallet if we have no cached wallet.
+  useEffect(() => {
+    let alive = true
+
+    async function initialLoad() {
+      const hasUser = !!getStoredUser()
+      const hasWallet = !!getWalletCache()
+
+      if (hasUser && hasWallet) return
+
+      setLoading(true)
+      try {
+        if (!hasUser) {
+          const meRes = await getMe()
+          if (!alive) return
+
+          const u = meRes.user
+          const stored: StoredUser = {
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            username: u.username,
+            email: u.email,
+            role: u.role,
+            phoneNumber: u.phoneNumber,
+            referralCode: u.referralCode,
+            isVerified: u.isVerified,
+            referralCount: u.referralCount,
+            wallet: u.wallet,
+          }
+          setUser(stored)
+        } else {
+          // keep state in sync with localStorage
+          setUser(getStoredUser())
+        }
+
+        if (!hasWallet) {
+          const walletRes = await getWallet()
+          if (!alive) return
+
+          const formatted = formatNaira(walletRes.wallet.balance)
+          setBalanceText(formatted)
+          setWalletCache({
+            balanceText: formatted,
+            currency: walletRes.wallet.currency,
+            updatedAt: walletRes.wallet.updated_at,
+          })
+        }
+      } catch {
+        clearAuthSession()
+        navigate('/login', { replace: true })
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    initialLoad()
+    return () => {
+      alive = false
+    }
+  }, [navigate])
+
+  async function refreshWalletBalance() {
+    setRefreshingBalance(true)
+    try {
+      const walletRes = await getWallet()
+      const formatted = formatNaira(walletRes.wallet.balance)
+      setBalanceText(formatted)
+      setWalletCache({
+        balanceText: formatted,
+        currency: walletRes.wallet.currency,
+        updatedAt: walletRes.wallet.updated_at,
+      })
+    } catch {
+      clearAuthSession()
+      navigate('/login', { replace: true })
+    } finally {
+      setRefreshingBalance(false)
+    }
+  }
+
+  const displayBalance = useMemo(() => balanceText, [balanceText])
+
+  function handleLogout() {
+    clearAuthSession()
+    navigate('/')
+  }
+
+  return (
+    <div className="dash-page">
+      <DashboardHeader user={user} onLogout={handleLogout} />
+
+      <main className="dash-main">
+        <DashboardHero />
+
+        <div className="dash-content">
+          <ProfileBar
+            user={user}
+            balance={displayBalance}
+            notificationCount={notificationCount}
+            onRefreshBalance={refreshWalletBalance}
+            refreshingBalance={refreshingBalance}
+          />
+
+          <AnnouncementBanner items={announcements} />
+          <WelcomeSection user={user} />
+          <RoleCTA user={user} />
+
+          <QuickActions user={user} />
+          <ActionGrid />
+          <StatsGrid balance={displayBalance} />
+
+          <TaskCategoriesStrip />
+          <RecentActivity />
+        </div>
+      </main>
+
+      {/* Role-aware FAB menu */}
+      <BottomNav role={user?.role} />
+
+      {loading && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '4.25rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '0.35rem 0.7rem',
+            borderRadius: '999px',
+            fontSize: '0.7rem',
+            color: 'var(--muted-foreground)',
+            background: 'rgba(15, 27, 46, 0.65)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            backdropFilter: 'blur(14px)',
+            zIndex: 60,
+          }}
+        >
+          Loading…
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/ActionGrid.tsx
+```tsx
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  Smartphone,
+  ListChecks,
+  type LucideIcon,
+} from 'lucide-react'
+
+type Accent = 'blue' | 'green' | 'purple' | 'pink'
+
+type ActionItem = {
+  id: 'deposit' | 'withdraw' | 'airtime' | 'submissions'
+  title: string
+  subtitle: string

@@ -1,0 +1,1073 @@
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="role-menu glass-strong"
+          >
+            {roles.map((r) => {
+              const isSelected = r.value === value
+              return (
+                <button
+                  type="button"
+                  key={r.value}
+                  className={`role-option ${isSelected ? 'role-option-selected' : ''}`}
+                  onClick={() => {
+                    onChange(r.value)
+                    setOpen(false)
+                  }}
+                >
+                  <span className="role-icon-wrap">
+                    <r.icon className="h-4 w-4" />
+                  </span>
+                  <span className="role-trigger-text">
+                    <span className="role-trigger-label">{r.label}</span>
+                    <span className="role-trigger-desc">{r.description}</span>
+                  </span>
+                  {isSelected && <Check className="h-4 w-4 role-check" />}
+                </button>
+              )
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function PasswordStrength({ password }: { password: string }) {
+  const getStrength = () => {
+    let score = 0
+    if (password.length >= 8) score++
+    if (/[A-Z]/.test(password)) score++
+    if (/[0-9]/.test(password)) score++
+    if (/[^A-Za-z0-9]/.test(password)) score++
+    return score
+  }
+  const strength = getStrength()
+  const labels = ['Weak', 'Fair', 'Good', 'Strong']
+  const label = password ? labels[Math.max(strength - 1, 0)] : ''
+
+  if (!password) return null
+
+  return (
+    <div className="password-strength">
+      <div className="password-strength-bars">
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className={`strength-bar ${i < strength ? `strength-bar-${strength}` : ''}`}
+          />
+        ))}
+      </div>
+      <span className="password-strength-label">{label}</span>
+    </div>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+export default function SignUpPage() {
+  const navigate = useNavigate()
+
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    phone: '',
+    role: '',
+    password: '',
+    confirmPassword: '',
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  function update(field: string, val: string) {
+    setForm((f) => ({ ...f, [field]: val }))
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }))
+    if (apiError) setApiError(null)
+  }
+
+  function validate() {
+    const next: Record<string, string> = {}
+    if (!form.firstName.trim()) next.firstName = 'First name is required'
+    if (!form.lastName.trim()) next.lastName = 'Last name is required'
+    if (!form.username.trim()) next.username = 'Username is required'
+    else if (!/^[a-zA-Z0-9_]{3,20}$/.test(form.username))
+      next.username = '3-20 characters, letters/numbers/underscore only'
+    if (!form.email.trim()) next.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      next.email = 'Enter a valid email address'
+    if (!form.phone.trim()) next.phone = 'Phone number is required'
+    else if (!/^[0-9+\s-]{10,15}$/.test(form.phone))
+      next.phone = 'Enter a valid phone number'
+    if (!form.role) next.role = 'Please select a role'
+    if (!form.password) next.password = 'Password is required'
+    else if (form.password.length < 8)
+      next.password = 'Password must be at least 8 characters'
+    if (form.confirmPassword !== form.password)
+      next.confirmPassword = 'Passwords do not match'
+    setErrors(next)
+    return Object.keys(next).length === 0
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setApiError(null)
+    if (!validate()) return
+
+    setSubmitting(true)
+    try {
+      // 1. Register the account
+      await signUp({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        username: form.username,
+        email: form.email,
+        phoneNumber: form.phone.replace(/\s/g, ''),
+        role: form.role,
+        password: form.password,
+      })
+
+      // 2. /auth/register doesn't return tokens, so immediately log the
+      //    new user in to get an access/refresh token pair and land them
+      //    straight in the dashboard.
+      const loginRes = await login({
+        email: form.email,
+        password: form.password,
+      })
+      setAuthSession(loginRes.accessToken, loginRes.refreshToken, loginRes.user)
+      navigate('/dashboard')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setApiError(err.message)
+      } else {
+        setApiError('Something went wrong. Please try again.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <div className="auth-orb-1" />
+      <div className="auth-orb-2" />
+
+      <div className="auth-container">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="auth-card glass-strong"
+        >
+          <Link to="/" className="auth-logo">
+            <img src="/icon.png" alt="Taskora" className="auth-logo-icon" />
+            <span className="auth-logo-text">Taskora</span>
+          </Link>
+
+          <div className="auth-header">
+            <h1 className="auth-title">
+              Create your <span className="text-gradient">free account</span>
+            </h1>
+            <p className="auth-subtitle">
+              Join Taskora and start earning or growing your brand today.
+            </p>
+          </div>
+
+          <AnimatePresence>
+            {apiError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="auth-api-error glass"
+              >
+                <span>{apiError}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            <div className="auth-row">
+              <div className="auth-field">
+                <label className="auth-label">First name</label>
+                <div
+                  className={`auth-input-wrap glass ${
+                    errors.firstName ? 'auth-input-error' : ''
+                  }`}
+                >
+                  <User className="h-4 w-4 auth-input-icon" />
+                  <input
+                    type="text"
+                    className="auth-input"
+                    placeholder="Ada"
+                    value={form.firstName}
+                    onChange={(e) => update('firstName', e.target.value)}
+                  />
+                </div>
+                {errors.firstName && (
+                  <span className="auth-error">{errors.firstName}</span>
+                )}
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-label">Last name</label>
+                <div
+                  className={`auth-input-wrap glass ${
+                    errors.lastName ? 'auth-input-error' : ''
+                  }`}
+                >
+                  <User className="h-4 w-4 auth-input-icon" />
+                  <input
+                    type="text"
+                    className="auth-input"
+                    placeholder="Okafor"
+                    value={form.lastName}
+                    onChange={(e) => update('lastName', e.target.value)}
+                  />
+                </div>
+                {errors.lastName && (
+                  <span className="auth-error">{errors.lastName}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Username</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.username ? 'auth-input-error' : ''
+                }`}
+              >
+                <AtSign className="h-4 w-4 auth-input-icon" />
+                <input
+                  type="text"
+                  className="auth-input"
+                  placeholder="ada_okafor"
+                  value={form.username}
+                  onChange={(e) => update('username', e.target.value)}
+                />
+              </div>
+              {errors.username && (
+                <span className="auth-error">{errors.username}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Email address</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.email ? 'auth-input-error' : ''
+                }`}
+              >
+                <Mail className="h-4 w-4 auth-input-icon" />
+                <input
+                  type="email"
+                  className="auth-input"
+                  placeholder="ada@example.com"
+                  value={form.email}
+                  onChange={(e) => update('email', e.target.value)}
+                />
+              </div>
+              {errors.email && (
+                <span className="auth-error">{errors.email}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Phone number</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.phone ? 'auth-input-error' : ''
+                }`}
+              >
+                <Phone className="h-4 w-4 auth-input-icon" />
+                <input
+                  type="tel"
+                  className="auth-input"
+                  placeholder="+234 801 234 5678"
+                  value={form.phone}
+                  onChange={(e) => update('phone', e.target.value)}
+                />
+              </div>
+              {errors.phone && (
+                <span className="auth-error">{errors.phone}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">I want to</label>
+              <RoleDropdown
+                value={form.role}
+                onChange={(v) => update('role', v)}
+              />
+              {errors.role && (
+                <span className="auth-error">{errors.role}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Password</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.password ? 'auth-input-error' : ''
+                }`}
+              >
+                <Lock className="h-4 w-4 auth-input-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="auth-input"
+                  placeholder="Create a strong password"
+                  value={form.password}
+                  onChange={(e) => update('password', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="auth-input-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <PasswordStrength password={form.password} />
+              {errors.password && (
+                <span className="auth-error">{errors.password}</span>
+              )}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Confirm password</label>
+              <div
+                className={`auth-input-wrap glass ${
+                  errors.confirmPassword ? 'auth-input-error' : ''
+                }`}
+              >
+                <Lock className="h-4 w-4 auth-input-icon" />
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  className="auth-input"
+                  placeholder="Re-enter your password"
+                  value={form.confirmPassword}
+                  onChange={(e) => update('confirmPassword', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="auth-input-toggle"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  aria-label="Toggle password visibility"
+                >
+                  {showConfirm ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {errors.confirmPassword && (
+                <span className="auth-error">{errors.confirmPassword}</span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="auth-submit btn-glow"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 auth-spinner" />
+              ) : (
+                <>
+                  Create free account <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <p className="auth-footer-text">
+            Already have an account?{' '}
+            <Link to="/login" className="auth-footer-link">
+              Sign in
+            </Link>
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Submissions/SubmissionsPage.tsx
+```tsx
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, Eye } from 'lucide-react'
+import { getMySubmissions } from '../../api/tasks'
+import { ApiError } from '../../api/http'
+import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
+import { formatNairaFromKobo } from '../../lib/money'
+import DashboardHeader from '../Dashboard/components/DashboardHeader'
+import BottomNav from '../Dashboard/components/BottomNav'
+import './submissions.css'
+
+export default function SubmissionsPage() {
+  const navigate = useNavigate()
+  const user = getStoredUser()
+
+  const [loading, setLoading] = useState(true)
+  const [submissions, setSubmissions] = useState<any[]>([])
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await getMySubmissions()
+        setSubmissions(res.submissions ?? [])
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          clearAuthSession()
+          navigate('/login')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [navigate])
+
+  function handleLogout() {
+    clearAuthSession()
+    navigate('/')
+  }
+
+  return (
+    <div className="sub-page">
+      <DashboardHeader user={user} onLogout={handleLogout} />
+
+      <div className="sub-shell">
+        <h1 className="sub-title">Submissions</h1>
+
+        {loading ? (
+          <div>Loading...</div>
+        ) : (
+          <div className="sub-list">
+            {submissions.map((s) => (
+              <div key={s.id} className="sub-modern-card">
+                <div className="sub-modern-top" />
+
+                <div className="sub-modern-body">
+                  <div className="sub-modern-header">
+                    <h3>{s.category_name} - {s.subcategory_name}</h3>
+                    <span className={`sub-badge ${s.status}`}>
+                      {s.status === 'approved' ? 'Approved — Paid' :
+                       s.status === 'pending' ? 'Pending Review' :
+                       'Rejected'}
+                    </span>
+                  </div>
+
+                  <div className="sub-modern-date">
+                    <Calendar size={14} /> {new Date(s.submitted_at).toDateString()}
+                  </div>
+
+                  <div className="sub-modern-earn">
+                    You earn: <strong>{formatNairaFromKobo(s.worker_earn_kobo)}</strong>
+                  </div>
+
+                  <button className="sub-view-btn">
+                    <Eye size={16}/> View My Proof
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <BottomNav role={user?.role} />
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Submissions/submissions.css
+```css
+.sub-modern-card {
+  background: var(--surface);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+}
+
+.sub-modern-top {
+  height: 6px;
+  background: #16a34a;
+}
+
+.sub-modern-body {
+  padding: 1rem;
+}
+
+.sub-modern-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sub-badge {
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.sub-badge.approved {
+  border: 1px solid #16a34a;
+  color: #16a34a;
+}
+
+.sub-badge.pending {
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+}
+
+.sub-badge.rejected {
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.sub-modern-date {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.sub-modern-earn {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.sub-view-btn {
+  margin-top: 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* ================================
+   SUBMISSIONS LAYOUT FIX
+   ================================ */
+
+.sub-page {
+  background: var(--background);
+  min-height: 100vh;
+}
+
+.sub-shell {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 6.2rem 1rem 2rem;
+}
+
+.sub-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 1.2rem;
+  color: var(--foreground);
+}
+
+.sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sub-modern-card {
+  background: var(--surface);
+  border-radius: 10px; /* less rounded */
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.sub-modern-top {
+  height: 5px;
+  background: #16a34a;
+}
+
+.sub-modern-body {
+  padding: 1rem;
+}
+
+.sub-modern-header h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--foreground);
+}
+
+.sub-modern-date {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.sub-modern-earn {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sub-view-btn {
+  margin-top: 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.65rem 1rem;
+  border-radius: 6px; /* less rounded */
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.sub-view-btn:hover {
+  opacity: 0.9;
+}
+
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/BrowseTasksPage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Search,
+  RefreshCw,
+  Pickaxe,
+  Users,
+  Clock3,
+  BadgeCheck,
+} from 'lucide-react'
+import {
+  getTasks,
+  getTaskCategories,
+  type TaskDto,
+  type TaskCategoryDto,
+} from '../../api/tasks'
+import { ApiError } from '../../api/http'
+import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
+import { formatNairaFromKobo } from '../../lib/money'
+import { getPlatformIcon, getBannerUrl, formatDateShort } from '../../lib/task-visuals'
+import { isAuthFailure } from '../../lib/api-errors'
+import { spawnRipple } from '../../lib/ripple'
+import DashboardHeader from '../Dashboard/components/DashboardHeader'
+import BottomNav from '../Dashboard/components/BottomNav'
+import TaskCardSkeleton from './components/TaskCardSkeleton'
+import '../../App.css'
+import '../../styles.css'
+import './tasks.css'
+import './tasks-skeleton.css'
+
+function uniq<T>(arr: T[]): T[] {
+  return Array.from(new Set(arr))
+}
+
+export default function BrowseTasksPage() {
+  const navigate = useNavigate()
+  const user = getStoredUser()
+
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [tasks, setTasks] = useState<TaskDto[]>([])
+  const [categories, setCategories] = useState<TaskCategoryDto[]>([])
+
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<string>('ALL')
+  const [subcategory, setSubcategory] = useState<string>('ALL')
+
+  async function loadAll(isManual = false) {
+    if (isManual) setRefreshing(true)
+    else setLoading(true)
+
+    setError(null)
+    try {
+      const [t, c] = await Promise.all([getTasks(), getTaskCategories()])
+      setTasks(t.tasks ?? [])
+      setCategories(c.categories ?? [])
+    } catch (err) {
+      if (isAuthFailure(err)) {
+        clearAuthSession()
+        navigate('/login', { replace: true })
+        return
+      }
+      if (err instanceof ApiError) setError(err.message)
+      else setError('Failed to load tasks. Please try again.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAll(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const categoryOptions = useMemo(() => {
+    const names = uniq(categories.map((c) => c.category_name))
+    names.sort()
+    return ['ALL', ...names]
+  }, [categories])
+
+  const subcategoryOptions = useMemo(() => {
+    if (category === 'ALL') return ['ALL']
+    const subs = uniq(
+      categories
+        .filter((c) => c.category_name === category)
+        .map((c) => c.subcategory_name),
+    )
+    subs.sort()
+    return ['ALL', ...subs]
+  }, [categories, category])
+
+  useEffect(() => {
+    if (!subcategoryOptions.includes(subcategory)) setSubcategory('ALL')
+  }, [subcategoryOptions, subcategory])
+
+  const filteredTasks = useMemo(() => {
+    const q = search.trim().toLowerCase()
+
+    return tasks.filter((t) => {
+      if (category !== 'ALL' && t.category_name !== category) return false
+      if (subcategory !== 'ALL' && t.subcategory_name !== subcategory) return false
+
+      if (!q) return true
+      const hay = [
+        t.job_description,
+        t.category_name,
+        t.subcategory_name,
+        t.advertiser_username,
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      return hay.includes(q)
+    })
+  }, [tasks, search, category, subcategory])
+
+  function handleLogout() {
+    clearAuthSession()
+    navigate('/')
+  }
+
+  const liveCount = filteredTasks.length
+
+  return (
+    <div className="tasks-page">
+      <div className="tasks-orb-1" />
+      <div className="tasks-orb-2" />
+
+      <DashboardHeader user={user} onLogout={handleLogout} />
+
+      <div className="tasks-shell">
+        <section className="tasks-hero glass-strong">
+          <div className="tasks-hero-icon glass">
+            <Pickaxe className="h-5 w-5" />
+          </div>
+
+          <h1 className="tasks-hero-title">
+            Task Feed — <span className="text-gradient">earn daily</span>
+          </h1>
+
+          <p className="tasks-hero-subtitle">
+            Pick a quick job, submit proof, get paid to your Taskora wallet.
+            Keep it simple—no long applications.
+          </p>
+
+          <div className="tasks-hero-stats">
+            <div className="tasks-mini-stat glass">
+              <div className="tasks-mini-stat-top">{loading ? '—' : liveCount}</div>
+              <div className="tasks-mini-stat-bottom">Live tasks</div>
+            </div>
+            <div className="tasks-mini-stat glass">
+              <div className="tasks-mini-stat-top">₦50M+</div>
+              <div className="tasks-mini-stat-bottom">Paid out</div>
+            </div>
+            <div className="tasks-mini-stat glass">
+              <div className="tasks-mini-stat-top">19k+</div>
+              <div className="tasks-mini-stat-bottom">Workers</div>
+            </div>
+          </div>
+
+          <div className="tasks-hero-actions">
+            <div className="tasks-search">
+              <Search className="h-4 w-4" style={{ color: 'var(--muted-foreground)' }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tasks…"
+              />
+              <button
+                type="button"
+                className="tasks-refresh"
+                onClick={() => loadAll(true)}
+                disabled={loading || refreshing}
+                aria-label="Refresh tasks"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'tasks-refresh-spin' : ''}`} />
+              </button>
+            </div>
+
+            <details className="tasks-categories glass" open={false}>
+              <summary className="tasks-categories-summary">
+                <span className="tasks-categories-label">Categories</span>
+                <span className="tasks-categories-value">
+                  {category === 'ALL' ? 'All platforms' : category}
+                  {subcategory !== 'ALL' ? ` · ${subcategory}` : ''}
+                </span>
+              </summary>
+
+              <div className="tasks-categories-body">
+                <div className="tasks-filter-row">
+                  {categoryOptions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`tasks-chip ${category === name ? 'tasks-chip-active' : ''}`}
+                      onClick={() => setCategory(name)}
+                    >
+                      {name === 'ALL' ? 'All' : name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="tasks-filter-row">
+                  {subcategoryOptions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`tasks-chip ${subcategory === name ? 'tasks-chip-active' : ''}`}
+                      onClick={() => setSubcategory(name)}
+                      disabled={category === 'ALL' && name !== 'ALL'}
+                      style={
+                        category === 'ALL' && name !== 'ALL'
+                          ? { opacity: 0.45, cursor: 'not-allowed' }
+                          : undefined
+                      }
+                    >
+                      {name === 'ALL' ? 'All' : name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        {error && <div className="tasks-error">{error}</div>}
+
+        <div className="tasks-list">
+          {loading ? (
+            <>
+              <TaskCardSkeleton />
+              <TaskCardSkeleton />
+              <TaskCardSkeleton />
+            </>
+          ) : filteredTasks.length === 0 ? (
+            <div className="tasks-empty">No tasks match your filters right now.</div>
+          ) : (
+            filteredTasks.map((t) => {
+              const Icon = getPlatformIcon(t.category_name)
+              const banner = getBannerUrl(t.category_name)
+
+              return (
+                <article key={t.id} className="task-card glass-strong">
+                  <div className="task-banner">
+                    <img src={banner} alt="" loading="lazy" />
+                    <div className="task-banner-overlay" />
+                    <div className="task-banner-chip glass">
+                      <Icon className="h-4 w-4" />
+                      <span>{t.category_name}</span>
+                    </div>
+                  </div>
+
+                  <div className="task-card-inner">
+                    <div className="task-body">
+                      <div className="task-top">
+                        <div className="task-badges">
+                          <span className="task-badge task-badge-muted">
+                            {t.subcategory_name}
+                          </span>
+                          {t.proof_required && (
+                            <span className="task-badge task-badge-muted task-badge-proof">
+                              <BadgeCheck className="task-mini-icon" />
+                              Proof
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          className="task-earn text-gradient"
+                          title="Earnings per completion"
+                        >
+                          {formatNairaFromKobo(t.worker_earn_kobo)}
+                        </div>
+                      </div>
+
+                      <div className="task-desc">{t.job_description}</div>
+
+                      <div className="task-meta">
+                        <div className="task-meta-item">
+                          <Users className="task-mini-icon" />
+                          <span>
+                            <strong>{t.spots_remaining}</strong> spots
+                          </span>
+                        </div>
+                        <div className="task-meta-item">
+                          <Clock3 className="task-mini-icon" />
+                          <span>
+                            Expires <strong>{formatDateShort(t.expires_at)}</strong>
+                          </span>
+                        </div>
+                        <div className="task-meta-item">
+                          <span>
+                            By <strong>@{t.advertiser_username}</strong>
+                          </span>
+                        </div>
+                        <div className="task-meta-item">
+                          <span>
+                            Done <strong>{t.completed_count}/{t.quantity}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="task-actions">
+                        <button
+                          type="button"
+                          className="task-btn task-btn-primary task-btn-apply"
+                          onClick={(e) => {
+                            spawnRipple(e)
+                            navigate(`/tasks/${t.id}`)
+                          }}
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      <BottomNav role={user?.role} />
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/TaskDetailPage.tsx
+```tsx
+import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  Calendar,
+  MapPin,
+  User,
+  ExternalLink,
+  Info,
+  AlertTriangle,
+  Upload,
+  CheckCircle,
+  ChevronRight,
+  X,
+  Loader2,
+  CheckCircle2,
+} from 'lucide-react'
+import { getTaskById, submitTaskProof, type TaskDto } from '../../api/tasks'
+import { ApiError } from '../../api/http'
+import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
+import { timeAgo, formatDateShort } from '../../lib/task-visuals'
+import { isAuthFailure, isSessionExpired } from '../../lib/api-errors'
+import { openExternalLink } from '../../lib/links'
+import { spawnRipple } from '../../lib/ripple'
+import { uploadProofScreenshot } from '../../lib/upload-proof'
+import DashboardHeader from '../Dashboard/components/DashboardHeader'
+import BottomNav from '../Dashboard/components/BottomNav'
+import '../../App.css'
+import '../../styles.css'
+import './task-detail-modern.css'
+
+export default function TaskDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const user = getStoredUser()
+
+  const [loading, setLoading] = useState(true)
+  const [task, setTask] = useState<TaskDto | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [proofText, setProofText] = useState('')
+
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    let alive = true
+
+    async function load() {
+      if (!id) return
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const res = await getTaskById(id)
+        if (!alive) return
+        setTask(res.task)
+      } catch (err) {
+        if (!alive) return
+        if (isAuthFailure(err)) {
+          clearAuthSession()
+          navigate('/login', { replace: true })
+          return
+        }
+        console.error('[TaskDetail] load failed:', err)
+        if (err instanceof ApiError) setLoadError(err.message)
+        else if (err instanceof Error) setLoadError(err.message)
+        else setLoadError('Failed to load this task. Please try again.')

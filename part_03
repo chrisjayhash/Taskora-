@@ -1,0 +1,1073 @@
+  icon: LucideIcon
+  accent: Accent
+  href?: string
+}
+
+const actions: ActionItem[] = [
+  {
+    id: 'deposit',
+    title: 'Deposit',
+    subtitle: 'Top up your wallet',
+    icon: ArrowDownToLine,
+    accent: 'blue',
+    href: '/deposit',
+  },
+  {
+    id: 'withdraw',
+    title: 'Withdraw',
+    subtitle: 'Cash out to bank',
+    icon: ArrowUpToLine,
+    accent: 'green',
+  },
+  {
+    id: 'airtime',
+    title: 'Buy airtime',
+    subtitle: 'Airtime & data',
+    icon: Smartphone,
+    accent: 'purple',
+  },
+  {
+    id: 'submissions',
+    title: 'Submissions',
+    subtitle: 'View your history',
+    icon: ListChecks,
+    accent: 'pink',
+    href: '/submissions',
+  },
+]
+
+export default function ActionGrid() {
+  const navigate = useNavigate()
+
+  function handleClick(a: ActionItem) {
+    if (a.href) {
+      navigate(a.href)
+      return
+    }
+    alert(`${a.title} — coming soon`)
+  }
+
+  return (
+    <section className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Quick actions</h3>
+      </div>
+
+      <div className="dash-action-grid">
+        {actions.map((a) => {
+          const Icon = a.icon
+          return (
+            <button
+              key={a.id}
+              type="button"
+              className={`dash-action-card glass dash-action-${a.accent}`}
+              onClick={() => handleClick(a)}
+            >
+              <div className="dash-action-card-top">
+                <div className="dash-action-icon">
+                  <Icon className="h-4 w-4" />
+                </div>
+              </div>
+
+              <div className="dash-action-title">{a.title}</div>
+              <div className="dash-action-subtitle">{a.subtitle}</div>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/AnnouncementBanner.tsx
+```tsx
+import { ShieldCheck } from 'lucide-react'
+
+export default function AnnouncementBanner({ items }: { items: string[] }) {
+  const loop = [...items, ...items]
+  return (
+    <div className="dash-announce">
+      <div className="dash-announce-track animate-marquee">
+        {loop.map((text, i) => (
+          <div key={i} className="dash-announce-item">
+            <span>{text}</span>
+            <ShieldCheck className="h-3.5 w-3.5 dash-announce-icon" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/BottomNav.tsx
+```tsx
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  Home,
+  Store,
+  Plus,
+  Briefcase,
+  Menu as MenuIcon,
+  Send,
+  ClipboardList,
+} from 'lucide-react'
+
+const leftTabs = [
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'marketplace', label: 'Marketplace', icon: Store },
+]
+
+const rightTabs = [
+  { id: 'jobs', label: 'Jobs', icon: Briefcase },
+  { id: 'more', label: 'More', icon: MenuIcon },
+]
+
+export default function BottomNav({ role }: { role?: string | null }) {
+  const navigate = useNavigate()
+  const [active, setActive] = useState('home')
+  const [fabOpen, setFabOpen] = useState(false)
+  const fabRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setFabOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const isWorker = role === 'worker'
+  const isAdvertiser = role === 'advertiser'
+
+  // - worker: hide "Post a task"
+  // - advertiser: hide "Browse tasks"
+  const showPostTask = !isWorker
+  const showBrowseTasks = !isAdvertiser
+  const hasFabActions = showPostTask || showBrowseTasks
+
+  function navTo(tabId: string) {
+    setActive(tabId)
+    if (tabId === 'home') navigate('/dashboard')
+    if (tabId === 'jobs') navigate('/tasks')
+    // marketplace/more: placeholder for now
+  }
+
+  return (
+    <nav className="dash-bottom-nav">
+      <div className="dash-bottom-nav-inner glass-strong">
+        <div className="dash-nav-group dash-nav-group-left">
+          {leftTabs.map((t) => {
+            const Icon = t.icon
+            const isActive = active === t.id
+            return (
+              <button
+                type="button"
+                key={t.id}
+                className={`dash-nav-item ${isActive ? 'dash-nav-item-active' : ''}`}
+                onClick={() => navTo(t.id)}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{t.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="dash-nav-fab-slot" ref={fabRef}>
+          <AnimatePresence>
+            {fabOpen && hasFabActions && (
+              <motion.div
+                initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                transition={{ duration: 0.18 }}
+                className="dash-fab-menu glass-strong"
+              >
+                {showPostTask && (
+                  <button
+                    type="button"
+                    className="dash-fab-menu-item"
+                    onClick={() => {
+                      setFabOpen(false)
+                      alert('Post a task — coming soon')
+                    }}
+                  >
+                    <ClipboardList className="h-4 w-4" /> Post a task
+                  </button>
+                )}
+
+                {showBrowseTasks && (
+                  <button
+                    type="button"
+                    className="dash-fab-menu-item"
+                    onClick={() => {
+                      setFabOpen(false)
+                      navigate('/tasks')
+                    }}
+                  >
+                    <Send className="h-4 w-4" /> Browse tasks
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            type="button"
+            className="dash-nav-fab"
+            onClick={() => {
+              if (!hasFabActions) return
+              setFabOpen((v) => !v)
+            }}
+            aria-label="Quick actions"
+          >
+            <Plus
+              className="h-6 w-6"
+              style={{
+                transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          </button>
+        </div>
+
+        <div className="dash-nav-group dash-nav-group-right">
+          {rightTabs.map((t) => {
+            const Icon = t.icon
+            const isActive = active === t.id
+            return (
+              <button
+                type="button"
+                key={t.id}
+                className={`dash-nav-item ${isActive ? 'dash-nav-item-active' : ''}`}
+                onClick={() => navTo(t.id)}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{t.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </nav>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/DashboardHeader.tsx
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Menu,
+  X,
+  User as UserIcon,
+  Settings,
+  LifeBuoy,
+  LogOut,
+  Sun,
+  Moon,
+} from 'lucide-react'
+import { toggleTheme } from '../../../lib/theme'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function DashboardHeader({
+  user,
+  onLogout,
+}: {
+  user: StoredUser | null
+  onLogout: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  return (
+    <header className="dash-header">
+      <div className="dash-header-inner glass">
+        <Link to="/dashboard" className="dash-logo">
+          <span className="dash-logo-text">Taskora</span>
+        </Link>
+
+        <div className="dash-header-menu" ref={ref}>
+          <button
+            type="button"
+            className="dash-menu-trigger"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X /> : <Menu />}
+          </button>
+
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="dash-menu-dropdown glass"
+              >
+                <button className="dash-menu-item">
+                  <UserIcon className="h-4 w-4" /> Profile
+                </button>
+
+                <button
+                  className="dash-menu-item"
+                  onClick={toggleTheme}
+                >
+                  <Sun className="h-4 w-4" /> Toggle Theme
+                </button>
+
+                <button className="dash-menu-item">
+                  <Settings className="h-4 w-4" /> Settings
+                </button>
+
+                <button className="dash-menu-item">
+                  <LifeBuoy className="h-4 w-4" /> Support
+                </button>
+
+                <div className="dash-menu-sep" />
+
+                <button
+                  className="dash-menu-item dash-menu-item-danger"
+                  onClick={onLogout}
+                >
+                  <LogOut className="h-4 w-4" /> Logout
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </header>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/DashboardHero.tsx
+```tsx
+import { motion } from 'framer-motion'
+import { LayoutDashboard, ChevronRight } from 'lucide-react'
+
+export default function DashboardHero() {
+  return (
+    <section className="dash-hero">
+      <div className="dash-hero-orb-1" />
+      <div className="dash-hero-orb-2" />
+      <div className="dash-hero-orb-3" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="dash-hero-content"
+      >
+        <div className="dash-hero-icon glass">
+          <LayoutDashboard className="h-5 w-5" />
+        </div>
+        <h1 className="dash-hero-title">Dashboard</h1>
+        <div className="dash-hero-breadcrumb">
+          <span>Home</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="dash-hero-breadcrumb-active">Dashboard</span>
+        </div>
+      </motion.div>
+    </section>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/ProfileBar.tsx
+```tsx
+import { Bell, RefreshCw } from 'lucide-react'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+function shortenBalanceText(balance: string) {
+  // CSS also ellipsizes, but this ensures the "…" appears even if layout changes.
+  const max = 14
+  if (!balance) return '₦0'
+  if (balance.length <= max) return balance
+  return `${balance.slice(0, max - 1)}…`
+}
+
+export default function ProfileBar({
+  user,
+  balance,
+  notificationCount,
+  onRefreshBalance,
+  refreshingBalance,
+}: {
+  user: StoredUser | null
+  balance: string
+  notificationCount: number
+  onRefreshBalance?: () => void
+  refreshingBalance?: boolean
+}) {
+  const initials = user
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : 'TK'
+
+  return (
+    <div
+      className="dash-profile-bar glass-strong"
+      // Slimmer card
+      style={{ padding: '0.8rem 0.95rem' }}
+    >
+      <div className="dash-profile-left">
+        <div
+          className="dash-profile-avatar"
+          style={{ height: '2.5rem', width: '2.5rem' }}
+        >
+          {initials}
+        </div>
+
+        <div style={{ minWidth: 0 }}>
+          <div className="dash-profile-username">@{user?.username ?? 'guest'}</div>
+
+          {/* Balance line: Balance ... (tiny refresh) NGN */}
+          <div className="dash-balance-row">
+            <span
+              className="text-gradient dash-balance-text"
+              title={balance}
+              aria-label={`Wallet balance ${balance}`}
+            >
+              {shortenBalanceText(balance)}
+            </span>
+
+            {/* refresh icon should sit just before NGN */}
+            <button
+              type="button"
+              className="dash-balance-refresh"
+              onClick={onRefreshBalance}
+              disabled={!onRefreshBalance || !!refreshingBalance}
+              aria-label="Refresh wallet balance"
+              title="Refresh balance"
+            >
+              <RefreshCw
+                className={`dash-balance-refresh-icon ${
+                  refreshingBalance ? 'dash-balance-refresh-spin' : ''
+                }`}
+              />
+            </button>
+
+            <span className="dash-profile-currency">NGN</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Only keep notifications */}
+      <div className="dash-profile-actions">
+        <button type="button" className="dash-icon-btn" aria-label="Notifications">
+          <Bell className="h-4 w-4" />
+          {notificationCount > 0 && (
+            <span className="dash-icon-badge">{notificationCount}</span>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/QuickActions.tsx
+```tsx
+import { useState } from 'react'
+import { Send, MessageCircle, Gift, Copy, Check } from 'lucide-react'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function QuickActions({ user }: { user: StoredUser | null }) {
+  const [copied, setCopied] = useState(false)
+  const referralCode = user?.referralCode || user?.username?.toUpperCase() || 'TASKORA'
+
+  function copyCode() {
+    navigator.clipboard.writeText(referralCode).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
+
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Join the community</h3>
+      </div>
+
+      <div className="dash-quick-actions">
+        <a href="#telegram" className="dash-action-btn dash-action-telegram">
+          <Send className="h-4 w-4" /> Join Telegram
+        </a>
+        <a href="#whatsapp" className="dash-action-btn dash-action-whatsapp">
+          <MessageCircle className="h-4 w-4" /> Join WhatsApp
+        </a>
+      </div>
+
+      <div className="dash-referral-card glass">
+        <div className="dash-referral-icon">
+          <Gift className="h-5 w-5" />
+        </div>
+        <div className="dash-referral-info">
+          <div className="dash-referral-title">Invite friends, earn ₦100 each</div>
+          <div className="dash-referral-code">
+            Your code: <strong>{referralCode}</strong>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="dash-referral-copy"
+          onClick={copyCode}
+          aria-label="Copy referral code"
+        >
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/RecentActivity.tsx
+```tsx
+import { ArrowRight } from 'lucide-react'
+import { recentActivity } from '../../../lib/dashboard-mock'
+
+export default function RecentActivity() {
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Recent activity</h3>
+        <button type="button" className="dash-section-link">
+          View all <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="dash-activity-list">
+        {recentActivity.map((a) => (
+          <div key={a.id} className="dash-activity-item glass">
+            <div className="dash-activity-info">
+              <div className="dash-activity-title">{a.title}</div>
+              <div className="dash-activity-meta">{a.meta}</div>
+            </div>
+            <div className={`dash-activity-amount ${a.positive ? 'positive' : 'negative'}`}>
+              {a.amount}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/RoleCTA.tsx
+```tsx
+import { ArrowRight, Megaphone, Briefcase } from 'lucide-react'
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function RoleCTA({ user }: { user: StoredUser | null }) {
+  const isAdvertiser = user?.role === 'advertiser'
+
+  return (
+    <div className="dash-role-cta glass-strong">
+      <div className="dash-role-cta-icon">
+        {isAdvertiser ? (
+          <Megaphone className="h-5 w-5" />
+        ) : (
+          <Briefcase className="h-5 w-5" />
+        )}
+      </div>
+      <div className="dash-role-cta-text">
+        <div className="dash-role-cta-title">
+          {isAdvertiser ? 'Ready to grow your brand?' : 'Ready to start earning?'}
+        </div>
+        <div className="dash-role-cta-subtitle">
+          {isAdvertiser
+            ? 'Post a task and reach thousands of active workers today.'
+            : 'Browse available tasks and get your first payout today.'}
+        </div>
+      </div>
+      <button type="button" className="dash-role-cta-btn btn-glow">
+        {isAdvertiser ? 'Post a task' : 'Find tasks'} <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/StatsGrid.tsx
+```tsx
+import { motion } from 'framer-motion'
+import { statCards } from '../../../lib/dashboard-mock'
+
+export default function StatsGrid({ balance }: { balance?: string }) {
+  const cards = statCards.map((c) =>
+    c.id === 'balance' && balance ? { ...c, value: balance } : c,
+  )
+
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Your overview</h3>
+      </div>
+      <div className="dash-stats-grid">
+        {cards.map((s, i) => {
+          const Icon = s.icon
+          return (
+            <motion.div
+              key={s.id}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.05 }}
+              className={`dash-stat-card glass dash-stat-${s.accent}`}
+            >
+              <div className="dash-stat-icon">
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="dash-stat-value">{s.value}</div>
+              <div className="dash-stat-label">{s.label}</div>
+              <div className="dash-stat-helper">{s.helper}</div>
+            </motion.div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/TaskCategoriesStrip.tsx
+```tsx
+import { ArrowRight } from 'lucide-react'
+import { quickCategories } from '../../../lib/dashboard-mock'
+
+export default function TaskCategoriesStrip() {
+  return (
+    <div className="dash-section">
+      <div className="dash-section-header">
+        <h3 className="dash-section-title">Browse tasks by platform</h3>
+        <button type="button" className="dash-section-link">
+          View all <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="dash-categories-scroll dash-no-scrollbar">
+        {quickCategories.map((c) => {
+          const Icon = c.icon
+          return (
+            <button type="button" key={c.name} className="dash-category-chip glass">
+              <span className="dash-category-chip-icon">
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="dash-category-chip-name">{c.name}</span>
+              <span className="dash-category-chip-rate">{c.rate}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/components/WelcomeSection.tsx
+```tsx
+import type { StoredUser } from '../../../lib/auth-storage'
+
+export default function WelcomeSection({ user }: { user: StoredUser | null }) {
+  return (
+    <div className="dash-welcome">
+      <h2 className="dash-welcome-title">
+        Welcome back, {user ? `${user.firstName} ${user.lastName}` : 'friend'}!{' '}
+        <span className="dash-welcome-wave">👋</span>
+      </h2>
+      <p className="dash-welcome-subtitle">
+        Here's what's happening with your account today.
+      </p>
+    </div>
+  )
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/dashboard-actions.css
+```css
+/* Dashboard: quick action grid (Deposit / Withdraw / Airtime / Job) */
+
+.dash-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.dash-action-card {
+  width: 100%;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  padding: 0.9rem;
+  border-radius: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.dash-action-card:hover {
+  transform: translateY(-1px);
+}
+
+.dash-action-card:active {
+  transform: translateY(0px);
+}
+
+.dash-action-card:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.55);
+  outline-offset: 2px;
+}
+
+.dash-action-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 0.15rem;
+}
+
+.dash-action-icon {
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Accent variants */
+.dash-action-blue .dash-action-icon {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+
+.dash-action-green .dash-action-icon {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.dash-action-purple .dash-action-icon {
+  background: rgba(124, 58, 237, 0.2);
+  color: #a78bfa;
+}
+
+.dash-action-pink .dash-action-icon {
+  background: rgba(236, 72, 153, 0.2);
+  color: #f472b6;
+}
+
+.dash-action-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.dash-action-subtitle {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  line-height: 1.35;
+}
+
+@media (max-width: 380px) {
+  .dash-action-card {
+    padding: 0.8rem;
+  }
+}
+```
+
+---
+
+### FILE PATH: src/pages/Dashboard/profilebar-overrides.css
+```css
+/* Profile bar: tiny refresh icon + balance truncation */
+
+.dash-balance-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+/* Truncate balance so it never eats the right side */
+.dash-balance-text {
+  display: inline-block;
+  max-width: 10.5ch; /* enough for ₦12,345,678 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* Tiny refresh button placed right before "NGN" */
+.dash-balance-refresh {
+  height: 1rem;
+  width: 1rem;
+  padding: 0;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(179, 191, 214, 0.85); /* muted-foreground-ish */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+
+  /* make it sit slightly lower than the balance text,
+     so it looks "tucked" close to the NGN label */
+  transform: translateY(0.18rem);
+}
+
+.dash-balance-refresh:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dash-balance-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dash-balance-refresh-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.dash-balance-refresh-spin {
+  animation: dash-refresh-spin 0.85s linear infinite;
+}
+
+@keyframes dash-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+```
+
+---
+
+### FILE PATH: src/pages/Deposit/DepositPage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowDownToLine, Loader2, X } from 'lucide-react'
+import { initializeDeposit } from '../../api/payments'
+import { ApiError } from '../../api/http'
+import '../../App.css'
+import '../../styles.css'
+import './deposit.css'
+
+const FEE_NAIRA = 50
+const MIN_AMOUNT_NAIRA = 50
+
+function formatNaira(n: number) {
+  const hasDecimals = Math.round(n * 100) % 100 !== 0
+  const formatted = new Intl.NumberFormat('en-NG', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(n)
+  return `₦${formatted}`
+}
+
+export default function DepositPage() {
+  const navigate = useNavigate()
+  const [amount, setAmount] = useState<string>('') // naira
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const amountNaira = useMemo(() => {
+    const n = Number(amount)
+    return Number.isFinite(n) ? n : 0
+  }, [amount])
+
+  const totalNaira = useMemo(() => {
+    if (!amount) return 0
+    const n = Number(amount)
+    if (!Number.isFinite(n) || n <= 0) return 0
+    return n + FEE_NAIRA
+  }, [amount])
+
+  function close() {
+    navigate('/dashboard', { replace: true })
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function submit() {
+    setError(null)
+
+    const raw = Number(amount)
+    if (!amount || !Number.isFinite(raw)) {
+      setError('Please enter a valid amount.')
+      return
+    }
+    if (raw < MIN_AMOUNT_NAIRA) {
+      setError(`Minimum deposit amount is ₦${MIN_AMOUNT_NAIRA}.`)
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      // Send NAIRA units (backend converts to kobo for Paystack)
+      const res = await initializeDeposit(totalNaira)
+
+      // Open Paystack checkout in a new tab
+      const w = window.open(res.authorizationUrl, '_blank', 'noopener,noreferrer')
+      if (!w) {
+        // Popup blockers on mobile sometimes prevent new tabs
+        window.location.href = res.authorizationUrl
+        return
+      }
+
+      close()
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message)
+      else setError('Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="deposit-page">
+      <div className="deposit-orb-1" />
+      <div className="deposit-orb-2" />
+
+      <div
+        className="deposit-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Deposit"
+        onMouseDown={(e) => {
+          if (e.currentTarget === e.target) close()
+        }}
+      >
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="deposit-dialog glass-strong"
+          >
+            <div className="deposit-header">
+              <div className="deposit-title-wrap">
+                <div className="deposit-icon">
+                  <ArrowDownToLine className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="deposit-title">Deposit to wallet</div>
+                  <div className="deposit-subtitle">
+                    Enter an amount (min ₦{MIN_AMOUNT_NAIRA}). A ₦{FEE_NAIRA} fee applies.
+                  </div>
+                </div>
+              </div>
+
+              <button className="deposit-close" type="button" onClick={close} aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="deposit-form">
+              <div className="deposit-field">
+                <div className="deposit-label">Amount</div>
+                <div className="deposit-input-wrap">
+                  <span className="deposit-prefix">₦</span>
+                  <input
+                    className="deposit-input"
+                    value={amount}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^\d]/g, '')
+                      setAmount(v)
+                      if (error) setError(null)
+                    }}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="200"
+                    aria-label="Deposit amount in naira"
+                  />
+                </div>
+                <div className="deposit-hint">
+                  You’ll be redirected to Paystack to complete payment.
+                </div>
+              </div>
+
+              <div className="deposit-breakdown">
+                <div className="deposit-row">
+                  <span>Deposit</span>
+                  <strong>{amount ? formatNaira(amountNaira) : '—'}</strong>
+                </div>
+                <div className="deposit-row">
+                  <span>Fee</span>
+                  <strong>{amount ? formatNaira(FEE_NAIRA) : '—'}</strong>
+                </div>
+                <div className="deposit-row">
+                  <span>Total</span>
+                  <strong>{amount ? formatNaira(totalNaira) : '—'}</strong>
+                </div>
+              </div>
+
+              {error && <div className="deposit-error">{error}</div>}
+
+              <button
+                type="button"
+                className="deposit-submit"
+                onClick={submit}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 deposit-spinner" /> Initializing…
+                  </>
+                ) : (
+                  'Continue to Paystack'
+                )}

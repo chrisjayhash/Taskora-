@@ -2120,6 +2120,22 @@ export interface TaskDto {
   status?: string
 }
 
+export interface TasksResponse {
+  tasks: TaskDto[]
+}
+
+export interface TaskCategoriesResponse {
+  categories: any[]
+}
+
+export interface TaskDetailResponse {
+  task: TaskDto
+}
+
+export interface SubmitTaskProofResponse {
+  submission: any
+}
+
 export interface SubmissionHistoryItem {
   id: string
   task_id: string
@@ -2167,6 +2183,58 @@ async function authedGet<T>(path: string): Promise<T> {
       headers: { Authorization: `Bearer ${refreshed.accessToken}` },
     })
   }
+}
+
+async function authedPost<T>(path: string, body: unknown): Promise<T> {
+  const access = getAccessToken()
+  if (!access) throw new ApiError(401, { error: 'Not authenticated' })
+
+  try {
+    return await apiFetch<T>(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${access}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    })
+  } catch (err) {
+    if (!isExpiredTokenError(err)) throw err
+
+    const refresh = getRefreshToken()
+    if (!refresh) throw err
+
+    const refreshed = await refreshAccessToken(refresh)
+    setAccessToken(refreshed.accessToken)
+
+    return await apiFetch<T>(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${refreshed.accessToken}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    })
+  }
+}
+
+/* ✅ KEEP ALL ORIGINAL EXPORTS */
+
+export function getTasks(): Promise<TasksResponse> {
+  return authedGet<TasksResponse>('/tasks')
+}
+
+export function getTaskCategories(): Promise<TaskCategoriesResponse> {
+  return authedGet<TaskCategoriesResponse>('/tasks/categories')
+}
+
+export function getTaskById(id: string): Promise<TaskDetailResponse> {
+  return authedGet<TaskDetailResponse>(`/tasks/${id}`)
+}
+
+export function submitTaskProof(id: string, proofValue?: string): Promise<SubmitTaskProofResponse> {
+  const body = proofValue !== undefined ? { proofValue } : {}
+  return authedPost<SubmitTaskProofResponse>(`/tasks/${id}/submit`, body)
 }
 
 export function getMySubmissions(): Promise<SubmissionsResponse> {
@@ -2822,6 +2890,43 @@ export function formatDateShort(iso: string): string {
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })
 }
+
+export function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(diffMs)) return '—'
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+```
+
+---
+
+### FILE PATH: src/lib/theme.ts
+```ts
+export function initTheme() {
+  const saved = localStorage.getItem('taskora_theme')
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark')
+  } else {
+    document.documentElement.removeAttribute('data-theme')
+  }
+}
+
+export function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme')
+  if (current === 'dark') {
+    document.documentElement.removeAttribute('data-theme')
+    localStorage.setItem('taskora_theme', 'light')
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark')
+    localStorage.setItem('taskora_theme', 'dark')
+  }
+}
 ```
 
 ---
@@ -2888,6 +2993,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './styles.css'
+import { initTheme } from './lib/theme'
+
+initTheme()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -3389,7 +3497,10 @@ import {
   Settings,
   LifeBuoy,
   LogOut,
+  Sun,
+  Moon,
 } from 'lucide-react'
+import { toggleTheme } from '../../../lib/theme'
 import type { StoredUser } from '../../../lib/auth-storage'
 
 export default function DashboardHeader({
@@ -3414,7 +3525,6 @@ export default function DashboardHeader({
     <header className="dash-header">
       <div className="dash-header-inner glass">
         <Link to="/dashboard" className="dash-logo">
-          <img src="/icon.png" alt="Taskora" className="dash-logo-icon" />
           <span className="dash-logo-text">Taskora</span>
         </Link>
 
@@ -3423,48 +3533,41 @@ export default function DashboardHeader({
             type="button"
             className="dash-menu-trigger"
             onClick={() => setOpen((v) => !v)}
-            aria-label="Open menu"
           >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {open ? <X /> : <Menu />}
           </button>
 
           <AnimatePresence>
             {open && (
               <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="dash-menu-dropdown glass-strong"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="dash-menu-dropdown glass"
               >
-                <div className="dash-menu-user">
-                  <div className="dash-menu-avatar">
-                    {user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : 'TK'}
-                  </div>
-                  <div>
-                    <div className="dash-menu-name">
-                      {user ? `${user.firstName} ${user.lastName}` : 'Taskora User'}
-                    </div>
-                    <div className="dash-menu-username">@{user?.username ?? 'guest'}</div>
-                  </div>
-                </div>
-
-                <div className="dash-menu-sep" />
-
-                <button type="button" className="dash-menu-item">
+                <button className="dash-menu-item">
                   <UserIcon className="h-4 w-4" /> Profile
                 </button>
-                <button type="button" className="dash-menu-item">
+
+                <button
+                  className="dash-menu-item"
+                  onClick={toggleTheme}
+                >
+                  <Sun className="h-4 w-4" /> Toggle Theme
+                </button>
+
+                <button className="dash-menu-item">
                   <Settings className="h-4 w-4" /> Settings
                 </button>
-                <button type="button" className="dash-menu-item">
+
+                <button className="dash-menu-item">
                   <LifeBuoy className="h-4 w-4" /> Support
                 </button>
 
                 <div className="dash-menu-sep" />
 
                 <button
-                  type="button"
                   className="dash-menu-item dash-menu-item-danger"
                   onClick={onLogout}
                 >
@@ -5681,15 +5784,13 @@ export default function SignUpPage() {
 ```tsx
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, CheckCircle2, XCircle, Clock3 } from 'lucide-react'
-import { getMySubmissions, type SubmissionHistoryItem } from '../../api/tasks'
+import { Calendar, Eye } from 'lucide-react'
+import { getMySubmissions } from '../../api/tasks'
 import { ApiError } from '../../api/http'
 import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
 import { formatNairaFromKobo } from '../../lib/money'
 import DashboardHeader from '../Dashboard/components/DashboardHeader'
 import BottomNav from '../Dashboard/components/BottomNav'
-import '../../App.css'
-import '../../styles.css'
 import './submissions.css'
 
 export default function SubmissionsPage() {
@@ -5697,37 +5798,23 @@ export default function SubmissionsPage() {
   const user = getStoredUser()
 
   const [loading, setLoading] = useState(true)
-  const [submissions, setSubmissions] = useState<SubmissionHistoryItem[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [submissions, setSubmissions] = useState<any[]>([])
 
   useEffect(() => {
-    let alive = true
-
     async function load() {
       try {
         const res = await getMySubmissions()
-        if (!alive) return
         setSubmissions(res.submissions ?? [])
       } catch (err) {
-        if (!alive) return
-
         if (err instanceof ApiError && err.status === 401) {
           clearAuthSession()
-          navigate('/login', { replace: true })
-          return
+          navigate('/login')
         }
-
-        if (err instanceof ApiError) setError(err.message)
-        else setError('Failed to load submissions.')
       } finally {
-        if (alive) setLoading(false)
+        setLoading(false)
       }
     }
-
     load()
-    return () => {
-      alive = false
-    }
   }, [navigate])
 
   function handleLogout() {
@@ -5740,54 +5827,38 @@ export default function SubmissionsPage() {
       <DashboardHeader user={user} onLogout={handleLogout} />
 
       <div className="sub-shell">
-        <h1 className="sub-title">Your Submissions</h1>
+        <h1 className="sub-title">Submissions</h1>
 
         {loading ? (
-          <div className="sub-loading">
-            <Loader2 className="sub-spinner" />
-          </div>
-        ) : error ? (
-          <div className="sub-error">{error}</div>
-        ) : submissions.length === 0 ? (
-          <div className="sub-empty">You haven't submitted any tasks yet.</div>
+          <div>Loading...</div>
         ) : (
           <div className="sub-list">
             {submissions.map((s) => (
-              <div key={s.id} className="sub-card glass">
-                <div className="sub-card-top">
-                  <div className="sub-job">{s.job_description}</div>
-                  <div className="sub-earn text-gradient">
-                    {formatNairaFromKobo(s.worker_earn_kobo)}
+              <div key={s.id} className="sub-modern-card">
+                <div className="sub-modern-top" />
+
+                <div className="sub-modern-body">
+                  <div className="sub-modern-header">
+                    <h3>{s.category_name} - {s.subcategory_name}</h3>
+                    <span className={`sub-badge ${s.status}`}>
+                      {s.status === 'approved' ? 'Approved — Paid' :
+                       s.status === 'pending' ? 'Pending Review' :
+                       'Rejected'}
+                    </span>
                   </div>
-                </div>
 
-                <div className="sub-meta">
-                  <span>{s.category_name} · {s.subcategory_name}</span>
-                </div>
-
-                <div className="sub-status-row">
-                  {s.status === 'pending' && (
-                    <span className="sub-status pending">
-                      <Clock3 className="h-3 w-3" /> Pending
-                    </span>
-                  )}
-                  {s.status === 'approved' && (
-                    <span className="sub-status approved">
-                      <CheckCircle2 className="h-3 w-3" /> Approved
-                    </span>
-                  )}
-                  {s.status === 'rejected' && (
-                    <span className="sub-status rejected">
-                      <XCircle className="h-3 w-3" /> Rejected
-                    </span>
-                  )}
-                </div>
-
-                {s.status === 'rejected' && s.rejection_reason && (
-                  <div className="sub-reason">
-                    {s.rejection_reason}
+                  <div className="sub-modern-date">
+                    <Calendar size={14} /> {new Date(s.submitted_at).toDateString()}
                   </div>
-                )}
+
+                  <div className="sub-modern-earn">
+                    You earn: <strong>{formatNairaFromKobo(s.worker_earn_kobo)}</strong>
+                  </div>
+
+                  <button className="sub-view-btn">
+                    <Eye size={16}/> View My Proof
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -5804,121 +5875,152 @@ export default function SubmissionsPage() {
 
 ### FILE PATH: src/pages/Submissions/submissions.css
 ```css
+.sub-modern-card {
+  background: var(--surface);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+}
+
+.sub-modern-top {
+  height: 6px;
+  background: #16a34a;
+}
+
+.sub-modern-body {
+  padding: 1rem;
+}
+
+.sub-modern-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sub-badge {
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.sub-badge.approved {
+  border: 1px solid #16a34a;
+  color: #16a34a;
+}
+
+.sub-badge.pending {
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+}
+
+.sub-badge.rejected {
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.sub-modern-date {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.sub-modern-earn {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.sub-view-btn {
+  margin-top: 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* ================================
+   SUBMISSIONS LAYOUT FIX
+   ================================ */
+
 .sub-page {
-  min-height: 100vh;
   background: var(--background);
-  color: var(--foreground);
-  padding-bottom: 6.5rem;
+  min-height: 100vh;
 }
 
 .sub-shell {
-  max-width: 640px;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 6.5rem 1rem 1.5rem;
+  padding: 6.2rem 1rem 2rem;
 }
 
 .sub-title {
-  font-family: var(--font-display);
   font-size: 1.4rem;
-  font-weight: 900;
-  margin-bottom: 1rem;
-}
-
-.sub-loading {
-  display: flex;
-  justify-content: center;
-  padding: 2rem 0;
-}
-
-.sub-spinner {
-  animation: spin 0.8s linear infinite;
-}
-
-.sub-error {
-  padding: 0.75rem;
-  border-radius: 0.8rem;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #fca5a5;
-}
-
-.sub-empty {
-  text-align: center;
-  padding: 2rem;
-  color: var(--muted-foreground);
+  font-weight: 800;
+  margin-bottom: 1.2rem;
+  color: var(--foreground);
 }
 
 .sub-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
-.sub-card {
-  padding: 0.9rem;
-  border-radius: 1rem;
+.sub-modern-card {
+  background: var(--surface);
+  border-radius: 10px; /* less rounded */
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
 }
 
-.sub-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.5rem;
+.sub-modern-top {
+  height: 5px;
+  background: #16a34a;
 }
 
-.sub-job {
+.sub-modern-body {
+  padding: 1rem;
+}
+
+.sub-modern-header h3 {
+  font-size: 1rem;
   font-weight: 700;
-  font-size: 0.9rem;
+  margin: 0;
+  color: var(--foreground);
 }
 
-.sub-earn {
-  font-weight: 900;
-  font-size: 0.85rem;
-}
-
-.sub-meta {
-  font-size: 0.7rem;
-  color: var(--muted-foreground);
-  margin-top: 0.4rem;
-}
-
-.sub-status-row {
-  margin-top: 0.6rem;
-}
-
-.sub-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.7rem;
-  font-weight: 800;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-}
-
-.sub-status.pending {
-  background: rgba(96, 165, 250, 0.15);
-  border: 1px solid rgba(96, 165, 250, 0.35);
-  color: #60a5fa;
-}
-
-.sub-status.approved {
-  background: rgba(52, 211, 153, 0.15);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  color: #34d399;
-}
-
-.sub-status.rejected {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #f87171;
-}
-
-.sub-reason {
+.sub-modern-date {
   margin-top: 0.5rem;
   font-size: 0.75rem;
-  color: #fca5a5;
+  color: var(--muted-foreground);
 }
+
+.sub-modern-earn {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sub-view-btn {
+  margin-top: 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.65rem 1rem;
+  border-radius: 6px; /* less rounded */
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.sub-view-btn:hover {
+  opacity: 0.9;
+}
+
 ```
 
 ---
@@ -5930,7 +6032,6 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search,
   RefreshCw,
-  ExternalLink,
   Pickaxe,
   Users,
   Clock3,
@@ -5947,7 +6048,6 @@ import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
 import { formatNairaFromKobo } from '../../lib/money'
 import { getPlatformIcon, getBannerUrl, formatDateShort } from '../../lib/task-visuals'
 import { isAuthFailure } from '../../lib/api-errors'
-import { openExternalLink } from '../../lib/links'
 import { spawnRipple } from '../../lib/ripple'
 import DashboardHeader from '../Dashboard/components/DashboardHeader'
 import BottomNav from '../Dashboard/components/BottomNav'
@@ -6061,7 +6161,6 @@ export default function BrowseTasksPage() {
       <DashboardHeader user={user} onLogout={handleLogout} />
 
       <div className="tasks-shell">
-        {/* Hero / intro */}
         <section className="tasks-hero glass-strong">
           <div className="tasks-hero-icon glass">
             <Pickaxe className="h-5 w-5" />
@@ -6159,7 +6258,6 @@ export default function BrowseTasksPage() {
 
         {error && <div className="tasks-error">{error}</div>}
 
-        {/* List */}
         <div className="tasks-list">
           {loading ? (
             <>
@@ -6187,7 +6285,6 @@ export default function BrowseTasksPage() {
 
                   <div className="task-card-inner">
                     <div className="task-body">
-                      {/* Badges row */}
                       <div className="task-top">
                         <div className="task-badges">
                           <span className="task-badge task-badge-muted">
@@ -6209,10 +6306,8 @@ export default function BrowseTasksPage() {
                         </div>
                       </div>
 
-                      {/* Description */}
                       <div className="task-desc">{t.job_description}</div>
 
-                      {/* Meta block (extra spacing) */}
                       <div className="task-meta">
                         <div className="task-meta-item">
                           <Users className="task-mini-icon" />
@@ -6238,18 +6333,7 @@ export default function BrowseTasksPage() {
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="task-actions">
-                        <button
-                          type="button"
-                          className="task-btn task-btn-ghost"
-                          onClick={() => openExternalLink(t.job_link)}
-                        >
-                          <span className="task-btn-inline">
-                            Open <ExternalLink className="h-4 w-4" />
-                          </span>
-                        </button>
-
                         <button
                           type="button"
                           className="task-btn task-btn-primary task-btn-apply"
@@ -6282,34 +6366,34 @@ export default function BrowseTasksPage() {
 ```tsx
 import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
-  ArrowLeft,
+  Calendar,
+  MapPin,
+  User,
   ExternalLink,
-  Users,
-  Clock3,
-  BadgeCheck,
-  ImagePlus,
+  Info,
+  AlertTriangle,
+  Upload,
+  CheckCircle,
+  ChevronRight,
+  X,
   Loader2,
   CheckCircle2,
-  X,
 } from 'lucide-react'
 import { getTaskById, submitTaskProof, type TaskDto } from '../../api/tasks'
 import { ApiError } from '../../api/http'
 import { clearAuthSession, getStoredUser } from '../../lib/auth-storage'
-import { formatNairaFromKobo } from '../../lib/money'
-import { getPlatformIcon, getBannerUrl, formatDateShort } from '../../lib/task-visuals'
+import { timeAgo, formatDateShort } from '../../lib/task-visuals'
 import { isAuthFailure, isSessionExpired } from '../../lib/api-errors'
 import { openExternalLink } from '../../lib/links'
 import { spawnRipple } from '../../lib/ripple'
 import { uploadProofScreenshot } from '../../lib/upload-proof'
 import DashboardHeader from '../Dashboard/components/DashboardHeader'
 import BottomNav from '../Dashboard/components/BottomNav'
-import TaskDetailSkeleton from './components/TaskDetailSkeleton'
 import '../../App.css'
 import '../../styles.css'
-import './tasks.css'
-import './tasks-skeleton.css'
-import './task-detail.css'
+import './task-detail-modern.css'
 
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -6422,7 +6506,7 @@ export default function TaskDetailPage() {
       (isTextProof && proofText.trim().length > 0))
 
   async function handleSubmit(e: MouseEvent<HTMLButtonElement>) {
-    spawnRipple(e, 'task-detail-submit-ripple')
+    spawnRipple(e, 'tdm-ripple')
     if (!task || !canSubmit) return
 
     setSubmitting(true)
@@ -6444,211 +6528,305 @@ export default function TaskDetailPage() {
         navigate('/login', { replace: true })
         return
       }
-
-      // Log the raw error so the real cause (Supabase, network, API) is visible in devtools.
       console.error('[TaskDetail] submit failed:', err)
-
-      if (err instanceof ApiError) {
-        setSubmitError(err.message)
-      } else if (err instanceof Error) {
-        setSubmitError(err.message)
-      } else {
-        setSubmitError('Something went wrong while submitting. Please try again.')
-      }
+      if (err instanceof ApiError) setSubmitError(err.message)
+      else if (err instanceof Error) setSubmitError(err.message)
+      else setSubmitError('Something went wrong while submitting. Please try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const PlatformIcon = task ? getPlatformIcon(task.category_name) : null
+  // Real values derived from the actual task where possible.
+  const earnedNaira = task ? Number(task.worker_earn_kobo) / 100 : 0
+  const filled = task ? task.completed_count : 0
+  const percent = task && task.quantity > 0 ? Math.round((filled / task.quantity) * 100) : 0
+  const jobIdShort = task ? task.id.slice(0, 8).toUpperCase() : ''
+  const postedLabel = task ? timeAgo(task.created_at) : ''
+  const expiresLabel = task ? formatDateShort(task.expires_at) : ''
+  // NOTE: location + screenshot target count aren't returned by the API yet —
+  // shown as placeholders until the backend adds them.
+  const mockLocation = 'Nigeria'
+  const mockScreenshotTarget = isScreenshotProof ? '1' : '—'
 
   return (
-    <div className="task-detail-page">
-      <div className="task-detail-orb-1" />
-      <div className="task-detail-orb-2" />
-
+    <div className="task-modern-page">
       <DashboardHeader user={user} onLogout={handleLogout} />
 
-      <div className="task-detail-shell">
-        <button type="button" className="task-detail-back" onClick={() => navigate('/tasks')}>
-          <ArrowLeft className="h-4 w-4" /> Back to tasks
-        </button>
+      {/* Breadcrumb hero, matches dashboard's Home > Dashboard pattern */}
+      <div className="tdm-page-header">
+        <div className="tdm-page-orb-1" />
+        <div className="tdm-page-orb-2" />
+        <div className="tdm-page-orb-3" />
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="tdm-page-header-content"
+        >
+          <h1 className="tdm-page-title">Job Details</h1>
+          <div className="tdm-breadcrumb">
+            <button type="button" onClick={() => navigate('/dashboard')}>
+              Home
+            </button>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span className="tdm-breadcrumb-active">Job Details</span>
+          </div>
+        </motion.div>
+      </div>
 
+      <AnimatePresence mode="wait">
         {loading ? (
-          <TaskDetailSkeleton />
+          <motion.div
+            key="skeleton"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <TaskDetailModernSkeleton />
+          </motion.div>
         ) : loadError ? (
-          <div className="task-detail-error">{loadError}</div>
+          <motion.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="tdm-content-wrapper"
+          >
+            <div className="tdm-error-box">{loadError}</div>
+          </motion.div>
         ) : task ? (
-          <>
-            <section className="task-detail-hero glass-strong">
-              <div className="task-detail-banner">
-                <img src={getBannerUrl(task.category_name)} alt="" loading="lazy" />
-                <div className="task-detail-banner-overlay" />
-                <div className="task-detail-banner-chip glass">
-                  {PlatformIcon && <PlatformIcon className="h-4 w-4" />}
-                  <span>{task.category_name}</span>
-                </div>
-                <div className="task-detail-earn-chip text-gradient">
-                  {formatNairaFromKobo(task.worker_earn_kobo)}
-                </div>
-              </div>
-
-              <div className="task-detail-body">
-                <div className="task-detail-top">
-                  <span className="task-detail-badge">{task.subcategory_name}</span>
-                  {task.proof_required && (
-                    <span className="task-detail-badge">
-                      <BadgeCheck className="task-mini-icon" /> Proof required
-                    </span>
-                  )}
-                  {task.status && (
-                    <span className="task-detail-badge task-detail-badge-status">
-                      {task.status}
-                    </span>
-                  )}
+          <motion.div
+            key="content"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          >
+            {/* HERO */}
+            <div className="tdm-hero-wrapper">
+              <div className="tdm-hero-card">
+                <div className="tdm-hero-top">
+                  <span className="tdm-category-badge">
+                    {task.category_name}
+                  </span>
+                  <span className="tdm-subcategory-pill">
+                    {task.subcategory_name}
+                  </span>
                 </div>
 
-                <h1 className="task-detail-title">{task.job_description}</h1>
+                <h2 className="tdm-hero-title">{task.job_description}</h2>
 
-                <div className="task-detail-meta-grid">
-                  <div className="task-detail-meta-item">
-                    <Users className="task-mini-icon" />
-                    <span>
-                      <strong>{task.spots_remaining}</strong> spots left
-                    </span>
+                <div className="tdm-hero-meta">
+                  <span><User size={14} /> {task.advertiser_username}</span>
+                  <span><Calendar size={14} /> {postedLabel}</span>
+                  <span><MapPin size={14} /> {mockLocation}</span>
+                </div>
+
+                <div className="tdm-hero-stats">
+                  <div>
+                    <strong>₦{earnedNaira} NGN</strong>
+                    <span>You Earn</span>
                   </div>
-                  <div className="task-detail-meta-item">
-                    <Clock3 className="task-mini-icon" />
-                    <span>
-                      Expires <strong>{formatDateShort(task.expires_at)}</strong>
-                    </span>
+                  <div>
+                    <strong>{task.spots_remaining}</strong>
+                    <span>Slots Left</span>
                   </div>
-                  <div className="task-detail-meta-item">
-                    <span>
-                      By <strong>@{task.advertiser_username}</strong>
-                    </span>
+                  <div>
+                    <strong>{task.quantity}</strong>
+                    <span>Total Slots</span>
                   </div>
-                  <div className="task-detail-meta-item">
-                    <span>
-                      Done{' '}
-                      <strong>
-                        {task.completed_count}/{task.quantity}
-                      </strong>
-                    </span>
+                  <div>
+                    <strong>{mockScreenshotTarget}</strong>
+                    <span>Screenshots</span>
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
 
-            {submitted ? (
-              <div className="task-detail-success">
-                <CheckCircle2 className="h-5 w-5" />
-                <span>Submitted! Your proof is pending review.</span>
+            <div className="tdm-content-wrapper">
+              {/* DESCRIPTION */}
+              <div className="tdm-white-card">
+                <div className="tdm-section-title">
+                  <Info size={16} /> Job Description
+                </div>
+                <p>{task.job_description}</p>
+                <p>Complete the action on the link below, then submit your proof.</p>
               </div>
-            ) : taskUnavailable ? (
-              <div className="task-detail-unavailable">
-                This task is no longer accepting submissions.
+
+              {/* WARNING */}
+              <div className="tdm-warning-box">
+                <AlertTriangle size={18} />
+                <div>
+                  <strong>Read the description FIRST before clicking</strong>
+                  <p>Only click when you are ready to complete the task.</p>
+                </div>
               </div>
-            ) : (
-              <>
-                <section className="task-detail-card glass">
-                  <div className="task-detail-step-label">
-                    <span className="task-detail-step-number">1</span>
-                    Perform the job
-                  </div>
-                  <div className="task-detail-link-preview">{task.job_link}</div>
-                  <button
-                    type="button"
-                    className="task-detail-perform-btn"
-                    onClick={handlePerformJob}
-                  >
-                    Open job link <ExternalLink className="h-4 w-4" />
-                  </button>
-                </section>
 
-                <section className="task-detail-card glass">
-                  <div className="task-detail-step-label">
-                    <span className="task-detail-step-number">2</span>
-                    {needsProof ? 'Submit your proof' : 'Confirm completion'}
+              {/* OPEN LINK */}
+              <button type="button" className="tdm-open-btn" onClick={handlePerformJob}>
+                <ExternalLink size={18} /> Open Task Link
+              </button>
+
+              {submitted ? (
+                <div className="tdm-success-box">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span>Submitted! Your proof is pending review.</span>
+                </div>
+              ) : taskUnavailable ? (
+                <div className="tdm-unavailable-box">
+                  This task is no longer accepting submissions.
+                </div>
+              ) : (
+                <div className="tdm-white-card">
+                  <div className="tdm-section-title">
+                    <Upload size={16} /> Submit Your Proof
                   </div>
 
-                  {!needsProof && (
-                    <p className="task-detail-not-required">
-                      No proof needed for this task — just hit submit once you're done.
-                    </p>
-                  )}
+                  <div className="tdm-pin-note">
+                    📌 <strong>Important:</strong> Your proof must clearly show the
+                    completed task. Fake or incorrect proof may result in rejection.
+                  </div>
 
-                  {isScreenshotProof &&
-                    (previewUrl ? (
-                      <div className="task-detail-preview">
-                        <img src={previewUrl} alt="Selected proof" />
-                        <button
-                          type="button"
-                          className="task-detail-preview-remove"
-                          onClick={clearFile}
-                          aria-label="Remove image"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="task-detail-upload">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          style={{ display: 'none' }}
-                        />
-                        <span className="task-detail-upload-icon">
-                          <ImagePlus className="h-5 w-5" />
-                        </span>
-                        <span className="task-detail-upload-text">Select a screenshot</span>
-                        <span className="task-detail-upload-hint">
-                          PNG or JPG from your gallery
-                        </span>
+                  {(isTextProof || !needsProof) && (
+                    <>
+                      <label className="tdm-label">
+                        What did you do? {needsProof && <span className="tdm-required">*</span>}
                       </label>
-                    ))}
-
-                  {isTextProof && (
-                    <input
-                      type="text"
-                      className="task-detail-text-input"
-                      placeholder={`Enter your ${task.proof_type.toLowerCase()} proof`}
-                      value={proofText}
-                      onChange={(e) => setProofText(e.target.value)}
-                    />
+                      <textarea
+                        className="tdm-input"
+                        placeholder="e.g. I followed the account and liked 3 posts as required..."
+                        value={proofText}
+                        onChange={(e) => setProofText(e.target.value)}
+                        disabled={!needsProof}
+                      />
+                    </>
                   )}
 
-                  {submitError && (
-                    <div className="task-detail-error" style={{ marginTop: '0.75rem' }}>
-                      {submitError}
-                    </div>
+                  {isScreenshotProof && (
+                    <>
+                      <label className="tdm-label">
+                        Upload Screenshot <span className="tdm-required">*</span>
+                      </label>
+
+                      {previewUrl ? (
+                        <div className="tdm-preview">
+                          <img src={previewUrl} alt="Selected proof" />
+                          <button
+                            type="button"
+                            className="tdm-preview-remove"
+                            onClick={clearFile}
+                            aria-label="Remove image"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="tdm-upload-box">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            style={{ display: 'none' }}
+                          />
+                          <Upload size={28} />
+                          <p><strong>Click to upload</strong> or drag &amp; drop</p>
+                          <span>JPG, PNG, GIF, WEBP — max 5 MB</span>
+                        </label>
+                      )}
+                    </>
                   )}
+
+                  {submitError && <div className="tdm-error-box">{submitError}</div>}
 
                   <button
                     type="button"
-                    className="task-detail-submit"
+                    className="tdm-submit-btn"
                     onClick={handleSubmit}
                     disabled={!canSubmit}
                   >
                     {submitting ? (
                       <>
-                        <Loader2 className="h-4 w-4 task-detail-spinner" /> Submitting…
+                        <Loader2 className="h-4 w-4 tdm-spinner" /> Submitting…
                       </>
                     ) : (
-                      'Submit proof'
+                      <>Submit Proof</>
                     )}
                   </button>
-                </section>
-              </>
-            )}
-          </>
+                </div>
+              )}
+
+              {/* JOB DETAILS */}
+              <div className="tdm-white-card">
+                <div className="tdm-section-title">
+                  <CheckCircle size={16} /> Job Details
+                </div>
+
+                <div className="tdm-progress">
+                  <div className="tdm-progress-bar" style={{ width: `${percent}%` }} />
+                </div>
+
+                <div className="tdm-progress-meta">
+                  <span>{task.spots_remaining} spots remaining</span>
+                  <span>{filled}/{task.quantity} filled</span>
+                </div>
+
+                <div className="tdm-details-grid">
+                  <div><span>Job ID</span><strong>{jobIdShort}</strong></div>
+                  <div><span>You Earn</span><strong>₦{earnedNaira} NGN</strong></div>
+                  <div><span>Posted</span><strong>{postedLabel}</strong></div>
+                  <div><span>Expires</span><strong>{expiresLabel}</strong></div>
+                  <div><span>Proof Required</span><strong>{needsProof ? 'Yes' : 'No'}</strong></div>
+                  <div><span>Posted By</span><strong>@{task.advertiser_username}</strong></div>
+                  <div><span>Category</span><strong>{task.category_name}</strong></div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         ) : null}
-      </div>
+      </AnimatePresence>
 
       <BottomNav role={user?.role} />
     </div>
+  )
+}
+
+function TaskDetailModernSkeleton() {
+  return (
+    <>
+      <div className="tdm-hero-wrapper">
+        <div className="tdm-hero-card tdm-skel-hero">
+          <div className="tdm-hero-top">
+            <span className="tdm-skel-block" style={{ width: '5rem', height: '1.4rem', borderRadius: '999px' }} />
+            <span className="tdm-skel-block" style={{ width: '6rem', height: '1.4rem', borderRadius: '999px' }} />
+          </div>
+          <div className="tdm-skel-block" style={{ width: '80%', height: '1.6rem', margin: '0.75rem 0' }} />
+          <div className="tdm-skel-block" style={{ width: '60%', height: '1rem', marginBottom: '1.2rem' }} />
+          <div className="tdm-hero-stats">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className="tdm-skel-block" style={{ width: '3.5rem', height: '1rem', margin: '0 auto 0.4rem' }} />
+                <div className="tdm-skel-block" style={{ width: '4.5rem', height: '0.7rem', margin: '0 auto' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="tdm-content-wrapper">
+        <div className="tdm-white-card">
+          <div className="tdm-skel-block" style={{ width: '40%', height: '1rem', marginBottom: '0.8rem' }} />
+          <div className="tdm-skel-block" style={{ width: '100%', height: '0.8rem', marginBottom: '0.5rem' }} />
+          <div className="tdm-skel-block" style={{ width: '90%', height: '0.8rem' }} />
+        </div>
+
+        <div className="tdm-white-card">
+          <div className="tdm-skel-block" style={{ width: '50%', height: '1rem', marginBottom: '0.8rem' }} />
+          <div className="tdm-skel-block" style={{ width: '100%', height: '5.5rem', marginBottom: '0.8rem' }} />
+          <div className="tdm-skel-block" style={{ width: '100%', height: '7rem' }} />
+        </div>
+      </div>
+    </>
   )
 }
 ```
@@ -6738,6 +6916,567 @@ export default function TaskDetailSkeleton() {
     </div>
   )
 }
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/task-detail-modern.css
+```css
+
+/* ================= BASE PAGE ================= */
+
+.task-modern-page {
+  background: var(--background);
+  min-height: 100vh;
+  padding-bottom: 6.5rem;
+}
+
+/* ================= BREADCRUMB HEADER ================= */
+
+.tdm-page-header {
+  position: relative;
+  overflow: hidden;
+  padding: 6.5rem 1rem 2.25rem;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(99,102,241,0.08), transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+html[data-theme='dark'] .tdm-page-header {
+  background: linear-gradient(180deg, rgba(37,99,235,0.15), transparent);
+}
+
+.tdm-page-orb-1,
+.tdm-page-orb-2,
+.tdm-page-orb-3 {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(40px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.tdm-page-orb-1 { top: -2rem; left: -1.5rem; width: 8rem; height: 8rem; background: #a5b4fc; }
+.tdm-page-orb-2 { top: 1rem; right: -2rem; width: 7rem; height: 7rem; background: #93c5fd; }
+.tdm-page-orb-3 { bottom: -2rem; left: 40%; width: 5rem; height: 5rem; background: #c4b5fd; }
+
+html[data-theme='dark'] .tdm-page-orb-1 { background: #2563eb; }
+html[data-theme='dark'] .tdm-page-orb-2 { background: #7c3aed; }
+html[data-theme='dark'] .tdm-page-orb-3 { background: #60a5fa; }
+
+.tdm-page-header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.tdm-page-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.tdm-breadcrumb {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.tdm-breadcrumb button {
+  background: none;
+  border: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0;
+}
+
+.tdm-breadcrumb button:hover {
+  color: var(--foreground);
+}
+
+.tdm-breadcrumb-active {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* ================= HERO ================= */
+
+.tdm-hero-wrapper {
+  padding: 1.5rem 1rem 0;
+}
+
+.tdm-hero-card {
+  background: linear-gradient(135deg, #0f172a, #064e3b);
+  border-radius: 18px;
+  padding: 1.5rem;
+  color: white;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.tdm-hero-top {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.tdm-category-badge {
+  background: rgba(34,197,94,0.2);
+  border: 1px solid #22c55e;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tdm-subcategory-pill {
+  background: rgba(99,102,241,0.25);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tdm-hero-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+  line-height: 1.3;
+}
+
+.tdm-hero-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin-bottom: 1.2rem;
+}
+
+.tdm-hero-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tdm-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.tdm-hero-stats div {
+  background: rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.tdm-hero-stats strong {
+  font-size: 1.05rem;
+  display: block;
+}
+
+.tdm-hero-stats span {
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+
+/* ================= CONTENT ================= */
+
+.tdm-content-wrapper {
+  margin-top: 1.5rem;
+  padding: 0 1rem;
+}
+
+.tdm-white-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 1.2rem;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+}
+
+.tdm-section-title {
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--foreground);
+}
+
+.tdm-white-card p {
+  color: var(--muted-foreground);
+  line-height: 1.6;
+  margin-bottom: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.tdm-label {
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+  display: block;
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.tdm-required {
+  color: #ef4444;
+}
+
+.tdm-input {
+  width: 100%;
+  min-height: 100px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.88rem;
+  resize: vertical;
+}
+
+.tdm-input:disabled {
+  opacity: 0.5;
+}
+
+.tdm-pin-note {
+  background: #fff7ed;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f97316;
+  border-radius: 10px;
+  padding: 0.8rem 0.9rem;
+  font-size: 0.82rem;
+  color: #78350f;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+html[data-theme='dark'] .tdm-pin-note {
+  background: #3b2f05;
+  border-color: #92400e;
+  color: #facc15;
+}
+
+.tdm-upload-box {
+  border: 2px dashed var(--border);
+  padding: 1.5rem;
+  text-align: center;
+  border-radius: 14px;
+  margin-bottom: 1rem;
+  color: var(--muted-foreground);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.tdm-upload-box:hover {
+  border-color: #6366f1;
+  background: rgba(99,102,241,0.05);
+}
+
+.tdm-upload-box p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 0.85rem;
+}
+
+.tdm-upload-box span {
+  font-size: 0.72rem;
+}
+
+.tdm-preview {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.tdm-preview img {
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  display: block;
+}
+
+.tdm-preview-remove {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  height: 1.9rem;
+  width: 1.9rem;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tdm-submit-btn {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 1rem;
+  border-radius: 14px;
+  border: none;
+  background: #111827;
+  color: white;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.tdm-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.tdm-submit-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tdm-spinner {
+  animation: tdm-spin 0.75s linear infinite;
+}
+
+@keyframes tdm-spin {
+  to { transform: rotate(360deg); }
+}
+
+.tdm-ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.35);
+  transform: scale(0);
+  pointer-events: none;
+  animation: tdm-ripple-anim 600ms ease-out;
+}
+
+@keyframes tdm-ripple-anim {
+  to { transform: scale(2.8); opacity: 0; }
+}
+
+/* ================= WARNING / STATUS BOXES ================= */
+
+.tdm-warning-box {
+  display: flex;
+  gap: 0.8rem;
+  background: #fff7ed;
+  border: 1px solid #fde68a;
+  border-radius: 14px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  color: #78350f;
+}
+
+.tdm-warning-box strong {
+  color: #92400e;
+}
+
+.tdm-warning-box p {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: #78350f;
+}
+
+html[data-theme='dark'] .tdm-warning-box {
+  background: #3b2f05;
+  border: 1px solid #92400e;
+  color: #facc15;
+}
+
+html[data-theme='dark'] .tdm-warning-box strong {
+  color: #fde047;
+}
+
+html[data-theme='dark'] .tdm-warning-box p {
+  color: #fef08a;
+}
+
+.tdm-error-box {
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(239,68,68,0.4);
+  background: rgba(239,68,68,0.1);
+  color: #ef4444;
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+}
+
+.tdm-success-box {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(34,197,94,0.4);
+  background: rgba(34,197,94,0.1);
+  color: #16a34a;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+
+html[data-theme='dark'] .tdm-success-box {
+  color: #4ade80;
+}
+
+.tdm-unavailable-box {
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted-foreground);
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+/* ================= OPEN LINK BUTTON ================= */
+
+.tdm-open-btn {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 8px 18px rgba(99,102,241,0.35);
+  transition: transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  cursor: pointer;
+}
+
+.tdm-open-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* ================= PROGRESS ================= */
+
+.tdm-progress {
+  height: 8px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+html[data-theme='dark'] .tdm-progress {
+  background: rgba(255,255,255,0.12);
+}
+
+.tdm-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.tdm-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+  color: var(--muted-foreground);
+}
+
+/* ================= DETAILS GRID ================= */
+
+.tdm-details-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.tdm-details-grid div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.55rem;
+  color: var(--muted-foreground);
+}
+
+.tdm-details-grid div:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.tdm-details-grid strong {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* ================= SKELETON ================= */
+
+.tdm-skel-block {
+  border-radius: 8px;
+  background-image: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.06) 0%,
+    rgba(0,0,0,0.13) 50%,
+    rgba(0,0,0,0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: tdm-shimmer 1.4s linear infinite;
+}
+
+html[data-theme='dark'] .tdm-skel-block {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.06) 0%,
+    rgba(255,255,255,0.16) 50%,
+    rgba(255,255,255,0.06) 100%
+  );
+}
+
+.tdm-skel-hero {
+  position: relative;
+}
+
+.tdm-skel-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: tdm-shimmer 1.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes tdm-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 ```
 
 ---
@@ -7297,6 +8036,29 @@ export default function TaskDetailSkeleton() {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ============================================
+   TASK LIST SKELETON — LIGHT MODE
+   ============================================ */
+
+html:not([data-theme='dark']) .task-skel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .task-skel-banner,
+html:not([data-theme='dark']) .task-skel-bar,
+html:not([data-theme='dark']) .task-skel-pill,
+html:not([data-theme='dark']) .task-skel-btn {
+  background-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.11) 50%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+  background-size: 200% 100%;
+}
+
 ```
 
 ---
@@ -7761,6 +8523,48 @@ export default function TaskDetailSkeleton() {
     height: 8.25rem;
   }
 }
+
+/* ============================================
+   TASK LIST — FLAT LIGHT MODE (less glow/shadow)
+   ============================================ */
+
+html:not([data-theme='dark']) .task-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .tasks-hero {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .tasks-mini-stat {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
+
+/* Banner chip stays readable over colorful images in both themes */
+html:not([data-theme='dark']) .task-banner-chip {
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  border: none;
+}
+
+/* Clean flat Apply button (now full width since Open is gone) */
+html:not([data-theme='dark']) .task-btn-apply {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+html:not([data-theme='dark']) .task-btn-apply:hover {
+  background: #4f46e5;
+}
+
 ```
 
 ---
@@ -9379,6 +10183,545 @@ img {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+/* ============================================
+   LIGHT / DARK THEME OVERRIDE
+   Default = LIGHT
+   ============================================ */
+
+:root {
+  --background: #f5f7fa;
+  --surface: #ffffff;
+  --foreground: #1f2937;
+  --muted-foreground: #6b7280;
+
+  --primary: #2563eb;
+  --accent: #3b82f6;
+
+  --border: #e5e7eb;
+
+  --card-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* DARK MODE OVERRIDE */
+
+html[data-theme='dark'] {
+  --background: #0b1120;
+  --surface: #172554;
+  --foreground: #faf8f6;
+  --muted-foreground: #b3bfd6;
+
+  --primary: #2563eb;
+  --accent: #60a5fa;
+
+  --border: rgba(255,255,255,0.1);
+
+  --card-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+/* Light mode adjustments */
+html:not([data-theme='dark']) .btn-glow {
+  box-shadow: none;
+}
+
+
+/* ================================
+   DASHBOARD CARD TEXT CONTRAST FIX
+   ================================ */
+
+/* Make card titles stronger */
+.dash-section-title,
+.dash-action-title,
+.dash-stat-value,
+.dash-role-cta-title,
+.dash-welcome-title {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* Improve subtext readability */
+.dash-action-subtitle,
+.dash-stat-label,
+.dash-role-cta-subtitle,
+.dash-welcome-subtitle {
+  color: #4b5563; /* darker grey for light mode */
+}
+
+/* In dark mode keep original softer tone */
+html[data-theme='dark'] .dash-action-subtitle,
+html[data-theme='dark'] .dash-stat-label,
+html[data-theme='dark'] .dash-role-cta-subtitle,
+html[data-theme='dark'] .dash-welcome-subtitle {
+  color: var(--muted-foreground);
+}
+
+
+/* ============================================
+   FIX BLUE CARD TEXT CONTRAST (LIGHT MODE)
+   ============================================ */
+
+/* Profile bar */
+html:not([data-theme='dark']) .dash-profile-bar {
+  background: linear-gradient(135deg, #4c5d85, #5a6ea0);
+  color: #ffffff;
+}
+
+html:not([data-theme='dark']) .dash-profile-username,
+html:not([data-theme='dark']) .dash-profile-currency {
+  color: #e5e7eb;
+}
+
+/* Role CTA card */
+html:not([data-theme='dark']) .dash-role-cta {
+  background: linear-gradient(135deg, #4c5d85, #5a6ea0);
+  color: #ffffff;
+}
+
+html:not([data-theme='dark']) .dash-role-cta-title,
+html:not([data-theme='dark']) .dash-role-cta-subtitle {
+  color: #f3f4f6;
+}
+
+/* Make button readable */
+html:not([data-theme='dark']) .dash-role-cta-btn {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+html:not([data-theme='dark']) .dash-role-cta-btn:hover {
+  background: #f3f4f6;
+}
+
+
+/* ============================================
+   APPLE-LIKE LIGHT MODE (FLAT + SOFT)
+   ============================================ */
+
+/* Remove blue gradient backgrounds in light mode */
+html:not([data-theme='dark']) .dash-profile-bar,
+html:not([data-theme='dark']) .dash-role-cta,
+html:not([data-theme='dark']) .dash-action-card,
+html:not([data-theme='dark']) .dash-stat-card,
+html:not([data-theme='dark']) .dash-category-chip,
+html:not([data-theme='dark']) .dash-activity-item,
+html:not([data-theme='dark']) .tasks-hero,
+html:not([data-theme='dark']) .task-card {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+/* Make dashboard section headings darker */
+html:not([data-theme='dark']) .dash-section-title {
+  color: #111827;
+}
+
+/* Make action card titles strong */
+html:not([data-theme='dark']) .dash-action-title {
+  color: #111827;
+  font-weight: 700;
+}
+
+/* Make subtext properly visible */
+html:not([data-theme='dark']) .dash-action-subtitle,
+html:not([data-theme='dark']) .dash-stat-label,
+html:not([data-theme='dark']) .dash-role-cta-subtitle,
+html:not([data-theme='dark']) .dash-activity-meta {
+  color: #6b7280;
+}
+
+/* Stats values stronger */
+html:not([data-theme='dark']) .dash-stat-value {
+  color: #111827;
+}
+
+/* Recent activity amount colors preserved */
+html:not([data-theme='dark']) .dash-activity-amount.positive {
+  color: #16a34a;
+}
+
+html:not([data-theme='dark']) .dash-activity-amount.negative {
+  color: #ef4444;
+}
+
+/* Tasks page hero flatten */
+html:not([data-theme='dark']) .tasks-hero {
+  background: #ffffff;
+}
+
+/* Search input flatten */
+html:not([data-theme='dark']) .tasks-search {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+/* Category dropdown flatten */
+html:not([data-theme='dark']) .tasks-categories {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+/* Remove glass blur effect in light mode */
+html:not([data-theme='dark']) .glass,
+html:not([data-theme='dark']) .glass-strong {
+  backdrop-filter: none;
+}
+
+/* Soften accent blues */
+html:not([data-theme='dark']) .text-gradient {
+  color: #2563eb;
+}
+
+/* Reduce radius slightly (modern look) */
+html:not([data-theme='dark']) .dash-action-card,
+html:not([data-theme='dark']) .dash-stat-card,
+html:not([data-theme='dark']) .dash-activity-item,
+html:not([data-theme='dark']) .task-card {
+  border-radius: 10px;
+}
+
+
+/* ============================================
+   PROFILE BAR FLAT LIGHT MODE
+   ============================================ */
+
+html:not([data-theme='dark']) .dash-profile-bar {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .dash-profile-username {
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .dash-profile-currency {
+  color: #6b7280;
+}
+
+
+/* ============================================
+   TASKS PAGE FLAT LIGHT MODE
+   ============================================ */
+
+html:not([data-theme='dark']) .tasks-mini-stat {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .tasks-mini-stat-top {
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .tasks-mini-stat-bottom {
+  color: #6b7280;
+}
+
+html:not([data-theme='dark']) .task-banner-chip {
+  background: rgba(0,0,0,0.05);
+  color: #111827;
+}
+
+
+/* ============================================
+   HEADER — LIGHT MODE SOFT STYLE
+   ============================================ */
+
+html:not([data-theme='dark']) .dash-header-inner {
+  background: #4f5d7a; /* soft muted blue */
+  border: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+html:not([data-theme='dark']) .dash-logo-text {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+html:not([data-theme='dark']) .dash-menu-trigger {
+  color: #ffffff;
+}
+
+
+/* ============================================
+   POPUP MENU — LIGHT MODE CLEAN
+   ============================================ */
+
+html:not([data-theme='dark']) .dash-menu-dropdown {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  padding: 0.75rem;
+}
+
+html:not([data-theme='dark']) .dash-menu-item {
+  color: #111827;
+  font-weight: 500;
+  border-radius: 10px;
+}
+
+html:not([data-theme='dark']) .dash-menu-item:hover {
+  background: #f3f4f6;
+}
+
+html:not([data-theme='dark']) .dash-menu-item-danger {
+  color: #ef4444;
+}
+
+html:not([data-theme='dark']) .dash-menu-sep {
+  background: #e5e7eb;
+}
+
+
+/* ============================================
+   BOTTOM NAV — LIGHT MODE REFINEMENT
+   ============================================ */
+
+/* Slim bottom nav */
+html:not([data-theme='dark']) .dash-bottom-nav-inner {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+}
+
+/* Slim nav items */
+html:not([data-theme='dark']) .dash-nav-item {
+  color: #6b7280;
+}
+
+html:not([data-theme='dark']) .dash-nav-item-active {
+  color: #111827;
+}
+
+/* FAB style */
+html:not([data-theme='dark']) .dash-nav-fab {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 6px 18px rgba(99,102,241,0.4);
+}
+
+/* Floating popup ABOVE FAB */
+html:not([data-theme='dark']) .dash-fab-menu {
+  bottom: calc(100% + 1.2rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Individual floating pill buttons */
+html:not([data-theme='dark']) .dash-fab-menu-item {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.6rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  font-weight: 600;
+  color: #111827;
+  justify-content: center;
+}
+
+html:not([data-theme='dark']) .dash-fab-menu-item:hover {
+  background: #f3f4f6;
+}
+
+
+/* ============================================
+   LIGHT MODE ICON BACKGROUND SOFTENING
+   ============================================ */
+
+/* Dashboard icons */
+html:not([data-theme='dark']) .dash-action-icon,
+html:not([data-theme='dark']) .dash-stat-icon,
+html:not([data-theme='dark']) .dash-category-chip-icon,
+html:not([data-theme='dark']) .dash-hero-icon {
+  background: #eef2ff; /* soft lavender */
+  color: #4f46e5;
+  box-shadow: none;
+}
+
+/* Tasks page icon */
+html:not([data-theme='dark']) .tasks-hero-icon {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* Remove heavy glow in light */
+html:not([data-theme='dark']) .dash-action-blue .dash-action-icon,
+html:not([data-theme='dark']) .dash-action-green .dash-action-icon,
+html:not([data-theme='dark']) .dash-action-purple .dash-action-icon,
+html:not([data-theme='dark']) .dash-action-pink .dash-action-icon {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+
+/* ============================================
+   LANDING PAGE — LIGHT MODE SUPPORT
+   ============================================ */
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .header-nav {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .header-signin {
+  color: #4b5563;
+}
+
+html:not([data-theme='dark']) .header-signin:hover {
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .nav-link:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+html:not([data-theme='dark']) .menu-toggle {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+html:not([data-theme='dark']) .mobile-menu {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .mobile-signin {
+  border: 1px solid #e5e7eb;
+  color: #111827;
+}
+
+/* Bug fix: this button never had an explicit text color — it happened to
+   look fine only because dark mode's default foreground was white. */
+.mobile-getstarted {
+  color: var(--primary-foreground);
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .hero-badge {
+  background: #eef2ff;
+  border: 1px solid #e0e7ff;
+}
+
+html:not([data-theme='dark']) .hero-btn-secondary {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .hero-btn-secondary:hover {
+  background-color: #f9fafb;
+}
+
+html:not([data-theme='dark']) .hero-stat {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .floating-card {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+}
+
+/* ── Marquee ────────────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .marquee {
+  background: #eef2ff;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .marquee-dot {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+/* ── How it works ───────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .step-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .step-card:hover {
+  background-color: #f9fafb;
+}
+
+/* ── Task categories ────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .category-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .category-card:hover {
+  background-color: #f9fafb;
+}
+
+/* ── Earnings ───────────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .earnings-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+html:not([data-theme='dark']) .earnings-badge {
+  background: #eef2ff;
+  border: 1px solid #e0e7ff;
+}
+
+html:not([data-theme='dark']) .transaction-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+/* Bug fix: hardcoded near-white text, invisible on a light background */
+html:not([data-theme='dark']) .feature-text {
+  color: #374151;
+}
+
+/* ── FAQ ────────────────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .faq-item {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .faq-item:hover {
+  background-color: #f9fafb;
+}
+
+/* ── CTA ────────────────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .cta-box {
+  background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .cta-btn-secondary {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #111827;
+}
+
+html:not([data-theme='dark']) .cta-btn-secondary:hover {
+  background-color: #f9fafb;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────── */
+
+html:not([data-theme='dark']) .footer {
+  border-top: 1px solid #e5e7eb;
+}
+
 ```
 
 ---

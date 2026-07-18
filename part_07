@@ -1,0 +1,1073 @@
+
+.task-detail-orb-2 {
+  width: 20rem;
+  height: 20rem;
+  bottom: -8rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, transparent 70%);
+}
+
+.task-detail-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 6.5rem 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: relative;
+}
+
+.task-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--muted-foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem 0;
+  width: fit-content;
+  transition: color 0.15s ease;
+}
+
+.task-detail-back:hover {
+  color: var(--foreground);
+}
+
+/* ── Hero card ───────────────────────────────────────────────────────── */
+
+.task-detail-hero {
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+
+.task-detail-banner {
+  position: relative;
+  height: 11rem;
+  width: 100%;
+  overflow: hidden;
+}
+
+.task-detail-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.task-detail-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(11, 17, 32, 0.05) 0%, rgba(11, 17, 32, 0.9) 96%);
+}
+
+.task-detail-banner-chip {
+  position: absolute;
+  left: 0.85rem;
+  bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 850;
+  color: var(--foreground);
+}
+
+.task-detail-earn-chip {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 900;
+  background: rgba(96, 165, 250, 0.16);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.task-detail-body {
+  padding: 0.95rem 1rem 1.1rem;
+}
+
+.task-detail-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.task-detail-badge {
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.task-detail-badge-status {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.12);
+  text-transform: capitalize;
+}
+
+.task-detail-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 850;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+
+.task-detail-meta-grid {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.task-detail-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.task-detail-meta-item strong {
+  color: var(--foreground);
+  font-weight: 850;
+}
+
+/* ── Step cards ──────────────────────────────────────────────────────── */
+
+.task-detail-card {
+  border-radius: 1.15rem;
+  padding: 1rem;
+}
+
+.task-detail-step-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 850;
+  color: var(--foreground);
+  margin-bottom: 0.7rem;
+}
+
+.task-detail-step-number {
+  height: 1.6rem;
+  width: 1.6rem;
+  border-radius: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(96, 165, 250, 0.16);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.task-detail-link-preview {
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+  word-break: break-all;
+  margin-bottom: 0.75rem;
+}
+
+.task-detail-perform-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.task-detail-perform-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Upload box ──────────────────────────────────────────────────────── */
+
+.task-detail-upload {
+  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 1rem;
+  padding: 1.1rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.task-detail-upload:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(96, 165, 250, 0.05);
+}
+
+.task-detail-upload-icon {
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.8rem;
+  background: rgba(96, 165, 250, 0.14);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-detail-upload-text {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.task-detail-upload-hint {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+}
+
+.task-detail-preview {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.task-detail-preview img {
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  display: block;
+}
+
+.task-detail-preview-remove {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  height: 1.9rem;
+  width: 1.9rem;
+  border-radius: 999px;
+  background: rgba(11, 17, 32, 0.75);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.task-detail-text-input {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--foreground);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.task-detail-text-input:focus {
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+/* ── Submit button: semi glass, ripple ──────────────────────────────────── */
+
+.task-detail-submit {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.14);
+  backdrop-filter: blur(14px) saturate(160%);
+  color: var(--foreground);
+  font-size: 0.88rem;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.15s ease;
+}
+
+.task-detail-submit:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.2);
+  transform: translateY(-1px);
+}
+
+.task-detail-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.task-detail-submit-ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(0);
+  pointer-events: none;
+  animation: task-detail-ripple-anim 600ms ease-out;
+}
+
+@keyframes task-detail-ripple-anim {
+  to {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+.task-detail-spinner {
+  animation: task-detail-spin 0.75s linear infinite;
+}
+
+@keyframes task-detail-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Status banners ──────────────────────────────────────────────────── */
+
+.task-detail-error {
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.task-detail-success {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.task-detail-unavailable {
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.task-detail-not-required {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  padding: 0.3rem 0 0.6rem;
+}
+
+/* ── Skeleton wrapper spacing ────────────────────────────────────────── */
+
+.task-detail-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.task-detail-skel-body {
+  padding: 0.9rem 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.task-detail-skel-card {
+  border-radius: 1.15rem;
+  padding: 1rem;
+  background: rgba(23, 37, 84, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 380px) {
+  .task-detail-banner {
+    height: 9.5rem;
+  }
+  .task-detail-title {
+    font-size: 1.05rem;
+  }
+}
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/tasks-skeleton.css
+```css
+/* Card skeleton (shimmer placeholder) for the browse list */
+
+.task-skel {
+  border-radius: 1.15rem;
+  overflow: hidden;
+  background: rgba(23, 37, 84, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.task-skel-banner {
+  height: 9rem;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-body {
+  padding: 0.55rem 0.7rem 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.task-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-skel-bar {
+  height: 0.7rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-bar.sm { width: 3rem; }
+.task-skel-bar.md { width: 5rem; }
+.task-skel-bar.lg { width: 7.5rem; }
+.task-skel-bar.xl { width: 9rem; }
+.task-skel-bar.grow { flex: 1; }
+
+.task-skel-pill {
+  height: 0.95rem;
+  width: 4rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+.task-skel-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.task-skel-btn {
+  flex: 1;
+  height: 1.6rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: task-skel-shimmer 1.4s linear infinite;
+}
+
+@keyframes task-skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   TASK LIST SKELETON — LIGHT MODE
+   ============================================ */
+
+html:not([data-theme='dark']) .task-skel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+html:not([data-theme='dark']) .task-skel-banner,
+html:not([data-theme='dark']) .task-skel-bar,
+html:not([data-theme='dark']) .task-skel-pill,
+html:not([data-theme='dark']) .task-skel-btn {
+  background-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.11) 50%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+  background-size: 200% 100%;
+}
+
+```
+
+---
+
+### FILE PATH: src/pages/Tasks/tasks.css
+```css
+.tasks-page {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  position: relative;
+  overflow-x: hidden;
+  padding-bottom: 6.5rem;
+}
+
+/* subtle orbs */
+.tasks-orb-1,
+.tasks-orb-2 {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.tasks-orb-1 {
+  width: 22rem;
+  height: 22rem;
+  top: -7rem;
+  left: -6rem;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.55) 0%, transparent 70%);
+}
+
+.tasks-orb-2 {
+  width: 20rem;
+  height: 20rem;
+  bottom: -8rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, transparent 70%);
+}
+
+.tasks-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 6.5rem 1rem 1.25rem;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+
+.tasks-hero {
+  border-radius: 1.25rem;
+  padding: 1rem 0.95rem;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 0.9rem;
+}
+
+.tasks-hero-icon {
+  height: 2.8rem;
+  width: 2.8rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+
+.tasks-hero-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.tasks-hero-subtitle {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+  max-width: 38ch;
+}
+
+.tasks-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.tasks-mini-stat {
+  border-radius: 1rem;
+  padding: 0.6rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.tasks-mini-stat-top {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.tasks-mini-stat-bottom {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  font-weight: 700;
+}
+
+.tasks-hero-actions {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+/* ── Search ───────────────────────────────────────────────────────────── */
+
+.tasks-search {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tasks-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--foreground);
+  font-size: 0.82rem;
+}
+
+.tasks-search input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.tasks-refresh {
+  height: 1.9rem;
+  width: 1.9rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: var(--foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tasks-refresh:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.tasks-refresh-spin {
+  animation: tasks-spin 0.85s linear infinite;
+}
+
+@keyframes tasks-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Categories dropdown ──────────────────────────────────────────────── */
+
+.tasks-categories {
+  border-radius: 1.1rem;
+  padding: 0.55rem 0.6rem;
+}
+
+.tasks-categories-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  outline: none;
+}
+
+.tasks-categories-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tasks-categories-label {
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: var(--muted-foreground);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tasks-categories-value {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.tasks-categories-body {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tasks-filter-row {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: none;
+}
+
+.tasks-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.tasks-chip {
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted-foreground);
+  padding: 0.42rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tasks-chip-active {
+  color: var(--foreground);
+  border-color: rgba(96,165,250,0.45);
+  background: rgba(96,165,250,0.10);
+}
+
+/* ── List & card ─────────────────────────────────────────────────────── */
+
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.task-card {
+  border-radius: 1.15rem;
+  overflow: hidden;
+}
+
+.task-banner {
+  position: relative;
+  height: 9rem;
+  width: 100%;
+  overflow: hidden;
+}
+
+.task-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+}
+
+.task-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(11,17,32,0.10) 0%, rgba(11,17,32,0.85) 95%);
+}
+
+.task-banner-chip {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  color: var(--foreground);
+}
+
+.task-card-inner {
+  padding: 0.55rem 0.7rem 0.65rem;
+}
+
+.task-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* space below badges / above description */
+.task-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.55rem;
+}
+
+.task-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.task-badge {
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.task-badge-muted {
+  color: var(--muted-foreground);
+}
+
+.task-badge-proof {
+  /* icon-only "proof" badge keeps tiny icon size */
+}
+
+.task-earn {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 900;
+  white-space: nowrap;
+  padding-top: 0.1rem;
+}
+
+/* space above description (handled by task-top margin-bottom) */
+.task-desc {
+  font-size: 0.86rem;
+  font-weight: 750;
+  color: var(--foreground);
+  line-height: 1.3;
+  margin-top: 0.15rem;
+}
+
+/* space above meta (gap between description and meta) */
+.task-meta {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+}
+
+.task-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.task-meta strong {
+  color: var(--foreground);
+  font-weight: 850;
+}
+
+/* SMALLER meta icons (Users, Clock3, BadgeCheck) */
+.task-mini-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* space above actions (gap between meta and buttons) */
+.task-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.task-btn {
+  flex: 1;
+  border: none;
+  cursor: pointer;
+  border-radius: 0.75rem;
+  padding: 0.42rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.task-btn-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.task-btn-ghost {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: var(--foreground);
+}
+
+/* Transparent "Apply" with ripple */
+.task-btn-apply {
+  position: relative;
+  overflow: hidden;
+  background: rgba(96, 165, 250, 0.14);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: var(--foreground);
+}
+
+.task-btn-apply:active {
+  background: rgba(96, 165, 250, 0.20);
+}
+
+.task-btn-ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(0);
+  pointer-events: none;
+  animation: task-ripple-anim 550ms ease-out;
+}
+
+@keyframes task-ripple-anim {
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* ── Empty & errors ──────────────────────────────────────────────────── */
+
+.tasks-empty {
+  text-align: center;
+  padding: 2.25rem 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+}
+
+.tasks-error {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 0.78rem;
+  margin: 0.85rem 0 0.95rem;
+}
+
+@media (max-width: 380px) {
+  .tasks-hero-title {
+    font-size: 1.15rem;
+  }
+  .task-banner {
+    height: 8.25rem;
+  }
+}
+
+/* ============================================
+   TASK LIST — FLAT LIGHT MODE (less glow/shadow)
+   ============================================ */
+
+html:not([data-theme='dark']) .task-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .tasks-hero {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html:not([data-theme='dark']) .tasks-mini-stat {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
+
+/* Banner chip stays readable over colorful images in both themes */
+html:not([data-theme='dark']) .task-banner-chip {
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  border: none;
+}
+
+/* Clean flat Apply button (now full width since Open is gone) */
+html:not([data-theme='dark']) .task-btn-apply {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+html:not([data-theme='dark']) .task-btn-apply:hover {
+  background: #4f46e5;
+}
+
+```
+
+---
+
+### FILE PATH: src/routes/AppRoutes.tsx
+```tsx
+import { Routes, Route, Link, Navigate } from "react-router-dom";
+import LandingPage from "../pages/Landing/LandingPage";
+import LoginPage from "../pages/Login/LoginPage";
+import SignUpPage from "../pages/SignUp/SignUpPage";
+import DashboardPage from "../pages/Dashboard/DashboardPage";
+import DepositPage from "../pages/Deposit/DepositPage";
+import BrowseTasksPage from "../pages/Tasks/BrowseTasksPage";
+import TaskDetailPage from "../pages/Tasks/TaskDetailPage";
+import SubmissionsPage from "../pages/Submissions/SubmissionsPage";
+import { isAuthenticated } from "../lib/auth-storage";
+
